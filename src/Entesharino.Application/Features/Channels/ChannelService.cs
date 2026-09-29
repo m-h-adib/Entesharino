@@ -8,8 +8,6 @@ namespace Entesharino.Application.Features.Channels;
 
 public sealed class ChannelService : IChannelService
 {
-    private const int MaxPageSize = 100;
-
     private readonly IDatabaseContext _database;
     private readonly ICurrentUserService _currentUser;
     private readonly ISecretProtector _secretProtector;
@@ -33,7 +31,7 @@ public sealed class ChannelService : IChannelService
             return ResultOfList<ChannelListItemDto>.Fail("کاربر جاری شناسایی نشد.", 401);
 
         var page = request.Page;
-        var pageSize = Math.Min(request.PageSize, MaxPageSize);
+        var pageSize = request.PageSize;
         var search = request.Search?.Trim();
 
         var query = _database.Channels
