@@ -66,6 +66,144 @@ public sealed class RubikaMessageSender : IMessageSender
         return await ParseResultAsync(response, cancellationToken);
     }
 
+
+    public async Task<SenderResult> SendMediaAsync(
+        ChannelCredentials credentials,
+        MediaMessage media,
+        CancellationToken cancellationToken = default)
+    {
+        var fileType = media.MediaType switch
+        {
+            MediaType.Image => "Image",
+            MediaType.Video => "Video",
+            MediaType.Audio => "Music",
+            MediaType.Document => "File",
+            _ => throw new InvalidOperationException(
+                $"نوع رسانه '{media.MediaType}' پشتیبانی نمی‌شود.")
+        };
+
+        var requestPayload = JsonSerializer.Serialize(new { type = fileType });
+
+        using var requestContent = new StringContent(
+            requestPayload,
+            Encoding.UTF8,
+            "application/json");
+
+        using var requestResponse = await _httpClient.PostAsync(
+            $"{Uri.EscapeDataString(credentials.AccessToken)}/requestSendFile",
+            requestContent,
+            cancellationToken);
+
+        var requestBody = await requestResponse.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!requestResponse.IsSuccessStatusCode)
+            return new SenderResult(
+                false,
+                ErrorMessage: $"Rubika Bot API خطا در آماده‌سازی آپلود برگرداند: {(int)requestResponse.StatusCode}.");
+
+        string? uploadUrl;
+        try
+        {
+            using var document = JsonDocument.Parse(requestBody);
+            var root = document.RootElement;
+
+            if (root.TryGetProperty("ok", out var ok) &&
+                ok.ValueKind == JsonValueKind.False)
+                return new SenderResult(false, ErrorMessage: GetError(root));
+
+            uploadUrl = root.TryGetProperty("upload_url", out var directUrl)
+                ? directUrl.GetString()
+                : root.TryGetProperty("data", out var data) &&
+                  data.ValueKind == JsonValueKind.Object &&
+                  data.TryGetProperty("upload_url", out var nestedUrl)
+                    ? nestedUrl.GetString()
+                    : null;
+        }
+        catch (JsonException)
+        {
+            return new SenderResult(
+                false,
+                ErrorMessage: "پاسخ آماده‌سازی آپلود Rubika معتبر نیست.");
+        }
+
+        if (string.IsNullOrWhiteSpace(uploadUrl))
+            return new SenderResult(
+                false,
+                ErrorMessage: "Rubika Bot API آدرس آپلود فایل را برنگرداند.");
+
+        using var uploadForm = new MultipartFormDataContent();
+
+        var streamContent = new StreamContent(media.Content);
+        streamContent.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue(
+                string.IsNullOrWhiteSpace(media.ContentType)
+                    ? "application/octet-stream"
+                    : media.ContentType);
+
+        uploadForm.Add(streamContent, "file", media.FileName);
+
+        using var uploadResponse = await _httpClient.PostAsync(
+            uploadUrl,
+            uploadForm,
+            cancellationToken);
+
+        var uploadBody = await uploadResponse.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!uploadResponse.IsSuccessStatusCode)
+            return new SenderResult(
+                false,
+                ErrorMessage: $"Rubika Bot API خطا در آپلود فایل برگرداند: {(int)uploadResponse.StatusCode}.");
+
+        string? fileId;
+        try
+        {
+            using var document = JsonDocument.Parse(uploadBody);
+            var root = document.RootElement;
+
+            if (root.TryGetProperty("ok", out var ok) &&
+                ok.ValueKind == JsonValueKind.False)
+                return new SenderResult(false, ErrorMessage: GetError(root));
+
+            fileId = root.TryGetProperty("file_id", out var directId)
+                ? directId.GetString()
+                : root.TryGetProperty("data", out var data) &&
+                  data.ValueKind == JsonValueKind.Object &&
+                  data.TryGetProperty("file_id", out var nestedId)
+                    ? nestedId.GetString()
+                    : null;
+        }
+        catch (JsonException)
+        {
+            return new SenderResult(
+                false,
+                ErrorMessage: "پاسخ آپلود فایل Rubika معتبر نیست.");
+        }
+
+        if (string.IsNullOrWhiteSpace(fileId))
+            return new SenderResult(
+                false,
+                ErrorMessage: "Rubika Bot API شناسه فایل را برنگرداند.");
+
+        var sendPayload = new
+        {
+            chat_id = credentials.Identifier,
+            file_id = fileId,
+            text = media.Caption
+        };
+
+        using var sendContent = new StringContent(
+            JsonSerializer.Serialize(sendPayload),
+            Encoding.UTF8,
+            "application/json");
+
+        using var sendResponse = await _httpClient.PostAsync(
+            $"{Uri.EscapeDataString(credentials.AccessToken)}/sendFile",
+            sendContent,
+            cancellationToken);
+
+        return await ParseResultAsync(sendResponse, cancellationToken);
+    }
+
     private static async Task<SenderResult> ParseResultAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
