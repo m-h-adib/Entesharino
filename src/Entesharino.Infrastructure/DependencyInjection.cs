@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Entesharino.Application.Common.Interfaces;
 using Entesharino.Application.Features.Auth;
 using Entesharino.Application.Features.Channels;
-using Entesharino.Application.Common.Interfaces;
 using Entesharino.Infrastructure.Messaging;
 using Entesharino.Application.Features.Roles;
 using Entesharino.Application.Features.Users;
