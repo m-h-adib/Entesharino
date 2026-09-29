@@ -22,7 +22,7 @@ public sealed class AuthController : ControllerBase
     {
         var result = await _authService.RegisterAsync(request, cancellationToken);
 
-        if (!result.Succeeded)
+        if (!result.Success)
             return BadRequest(result);
 
         return Ok(result);
@@ -35,7 +35,7 @@ public sealed class AuthController : ControllerBase
     {
         var result = await _authService.LoginAsync(request, cancellationToken);
 
-        if (!result.Succeeded)
+        if (!result.Success)
             return Unauthorized(result);
 
         return Ok(result);
