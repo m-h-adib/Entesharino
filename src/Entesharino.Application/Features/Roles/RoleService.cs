@@ -103,7 +103,6 @@ public sealed class RoleService : IRoleService
         await _database.SaveChangesAsync(cancellationToken);
         return ResultDto.Ok("مجوزهای نقش با موفقیت به‌روزرسانی شد.");
     }
-}
 
 
     public async Task<ResultDto> SetActiveAsync(long id, bool isActive, CancellationToken cancellationToken = default)
