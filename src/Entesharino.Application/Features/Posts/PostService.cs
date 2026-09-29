@@ -145,6 +145,110 @@ public sealed class PostService : IPostService
             : ResultDto<PostDetailsDto>.Ok(post);
     }
 
+    public async Task<ResultDto<PostMediaDeliveryReportDto>> GetMediaDeliveryReportAsync(
+        long id,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = _currentUser.UserId;
+        if (!userId.HasValue)
+            return ResultDto<PostMediaDeliveryReportDto>.Fail(
+                "کاربر جاری شناسایی نشد.", 401);
+
+        var post = await _database.Posts
+            .AsNoTracking()
+            .Include(x => x.Channels)
+                .ThenInclude(x => x.Channel)
+            .Include(x => x.Media)
+            .SingleOrDefaultAsync(
+                x => x.Id == id &&
+                     x.UserId == userId.Value &&
+                     !x.IsRemoved,
+                cancellationToken);
+
+        if (post is null)
+            return ResultDto<PostMediaDeliveryReportDto>.Fail(
+                "پست موردنظر پیدا نشد.", 404);
+
+        var channels = post.Channels
+            .Where(x => !x.IsRemoved && !x.Channel.IsRemoved)
+            .OrderBy(x => x.Id)
+            .ToList();
+
+        var media = post.Media
+            .Where(x => !x.IsRemoved)
+            .OrderBy(x => x.Id)
+            .ToList();
+
+        var deliveries = await _database.PostMediaDeliveries
+            .AsNoTracking()
+            .Where(x =>
+                !x.IsRemoved &&
+                x.PostChannel.PostId == post.Id &&
+                !x.PostChannel.IsRemoved &&
+                media.Select(m => m.Id).Contains(x.PostMediaId))
+            .ToListAsync(cancellationToken);
+
+        var deliveryMap = deliveries
+            .GroupBy(x => new { x.PostChannelId, x.PostMediaId })
+            .ToDictionary(
+                x => (x.Key.PostChannelId, x.Key.PostMediaId),
+                x => x.OrderByDescending(d => d.Id).First());
+
+        var channelReports = channels
+            .Select(channel => new PostMediaDeliveryChannelDto
+            {
+                ChannelId = channel.ChannelId,
+                ChannelName = channel.Channel.Name,
+                Platform = channel.Channel.Platform,
+                ChannelStatus = channel.Status,
+                ChannelSentAt = channel.SentAt,
+                ChannelErrorMessage = channel.ErrorMessage,
+                ChannelRetryCount = channel.RetryCount,
+                Media = media
+                    .Select(item =>
+                    {
+                        deliveryMap.TryGetValue(
+                            (channel.Id, item.Id),
+                            out var delivery);
+
+                        return new PostMediaDeliveryItemDto
+                        {
+                            MediaId = item.Id,
+                            FileName = item.FileName,
+                            MediaType = item.MediaType,
+                            FileSize = item.FileSize,
+                            Status = delivery?.Status ?? DeliveryStatus.Pending,
+                            SentAt = delivery?.SentAt,
+                            ExternalMessageId = delivery?.ExternalMessageId,
+                            ErrorMessage = delivery?.ErrorMessage,
+                            RetryCount = delivery?.RetryCount ?? 0
+                        };
+                    })
+                    .ToList()
+            })
+            .ToList();
+
+        var allMediaReports = channelReports
+            .SelectMany(x => x.Media)
+            .ToList();
+
+        return ResultDto<PostMediaDeliveryReportDto>.Ok(
+            new PostMediaDeliveryReportDto
+            {
+                PostId = post.Id,
+                PostTitle = post.Title,
+                PostStatus = post.Status,
+                TotalMedia = media.Count,
+                TotalChannels = channels.Count,
+                TotalDeliveries = allMediaReports.Count,
+                SentCount = allMediaReports.Count(x => x.Status == DeliveryStatus.Sent),
+                PendingCount = allMediaReports.Count(x => x.Status == DeliveryStatus.Pending),
+                ProcessingCount = allMediaReports.Count(x => x.Status == DeliveryStatus.Processing),
+                FailedCount = allMediaReports.Count(x => x.Status == DeliveryStatus.Failed),
+                Channels = channelReports
+            });
+    }
+
     public async Task<ResultDto<PostDetailsDto>> CreateAsync(
         CreatePostRequest request,
         CancellationToken cancellationToken = default)
