@@ -19,6 +19,26 @@ public sealed class ReportsController : ControllerBase
         _reportService = reportService;
     }
 
+    [HttpGet("deliveries")]
+    [HasPermission(PermissionCodes.ReportsView)]
+    public async Task<IActionResult> GetDeliveries(
+        [FromQuery] DeliveryReportRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _reportService.GetDeliveryReportAsync(request, cancellationToken);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HttpGet("deliveries/summary")]
+    [HasPermission(PermissionCodes.ReportsView)]
+    public async Task<IActionResult> GetDeliverySummary(
+        [FromQuery] DashboardRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _reportService.GetDeliverySummaryAsync(request, cancellationToken);
+        return StatusCode(result.StatusCode, result);
+    }
+
     [HttpGet("dashboard")]
     [HasPermission(PermissionCodes.ReportsView)]
     public async Task<IActionResult> GetDashboard(
