@@ -86,9 +86,28 @@ public sealed class BaleMessageSender : IMessageSender
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
+        {
+            string? description = null;
+
+            try
+            {
+                using var errorDocument = JsonDocument.Parse(body);
+                var errorRoot = errorDocument.RootElement;
+
+                if (errorRoot.TryGetProperty("description", out var desc))
+                    description = desc.GetString();
+            }
+            catch (JsonException)
+            {
+                // پاسخ Bale ممکن است JSON معتبر نباشد.
+            }
+
             return new SenderResult(
                 false,
-                ErrorMessage: $"Bale API خطا برگرداند: {(int)response.StatusCode}.");
+                ErrorMessage: string.IsNullOrWhiteSpace(description)
+                    ? $"Bale API خطا برگرداند: {(int)response.StatusCode} {response.ReasonPhrase}. پاسخ: {body}"
+                    : $"Bale API خطا برگرداند: {(int)response.StatusCode}. {description}");
+        }
 
         try
         {
