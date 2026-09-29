@@ -8,7 +8,6 @@ namespace Entesharino.Application.Features.Users;
 
 public sealed class UserService : IUserService
 {
-    private const int MaxPageSize = 100;
     private readonly IDatabaseContext _database;
     private readonly IPasswordHasher _passwordHasher;
 
@@ -20,8 +19,8 @@ public sealed class UserService : IUserService
 
     public async Task<ResultOfList<UserListItemDto>> GetListAsync(UserListRequest request, CancellationToken cancellationToken = default)
     {
-        var page = Math.Max(request.Page, 1);
-        var pageSize = Math.Clamp(request.PageSize, 1, MaxPageSize);
+        var page = request.Page;
+        var pageSize = request.PageSize;
         var search = request.Search?.Trim();
 
         var query = _database.Users.AsNoTracking().Where(x => !x.IsRemoved);
