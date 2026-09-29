@@ -11,11 +11,13 @@ public sealed class ChannelService : IChannelService
     private readonly IDatabaseContext _database;
     private readonly ICurrentUserService _currentUser;
     private readonly ISecretProtector _secretProtector;
+    private readonly IMessageSenderFactory _senderFactory;
 
     public ChannelService(
         IDatabaseContext database,
         ICurrentUserService currentUser,
-        ISecretProtector secretProtector)
+        ISecretProtector secretProtector,
+        IMessageSenderFactory senderFactory)
     {
         _database = database;
         _currentUser = currentUser;
@@ -256,6 +258,59 @@ public sealed class ChannelService : IChannelService
         await _database.SaveChangesAsync(cancellationToken);
 
         return ResultDto.Ok(isActive ? "کانال فعال شد." : "کانال غیرفعال شد.");
+    }
+
+    public async Task<ResultDto> TestConnectionAsync(
+        long id,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = _currentUser.UserId;
+        if (!userId.HasValue)
+            return ResultDto.Fail("کاربر جاری شناسایی نشد.", 401);
+
+        var channel = await _database.Channels
+            .Include(x => x.Connection)
+            .SingleOrDefaultAsync(
+                x => x.Id == id && x.UserId == userId.Value && !x.IsRemoved,
+                cancellationToken);
+
+        if (channel is null)
+            return ResultDto.Fail("کانال موردنظر پیدا نشد.", 404);
+
+        if (channel.Connection is null)
+            return ResultDto.Fail("اطلاعات اتصال کانال ثبت نشده است.", 400);
+
+        try
+        {
+            var credentials = new ChannelCredentials(
+                _secretProtector.Unprotect(channel.Connection.EncryptedAccessToken),
+                channel.Identifier,
+                string.IsNullOrWhiteSpace(channel.Connection.EncryptedRefreshToken)
+                    ? null
+                    : _secretProtector.Unprotect(channel.Connection.EncryptedRefreshToken));
+
+            var sender = _senderFactory.Get(channel.Platform);
+            var result = await sender.TestConnectionAsync(credentials, cancellationToken);
+
+            channel.LastConnectionCheckAt = DateTime.UtcNow;
+            channel.IsConnected = result.Success;
+            channel.Connection.LastValidatedAt = result.Success
+                ? DateTime.UtcNow
+                : null;
+
+            await _database.SaveChangesAsync(cancellationToken);
+
+            return result.Success
+                ? ResultDto.Ok("اتصال کانال با موفقیت تأیید شد.")
+                : ResultDto.Fail(result.ErrorMessage ?? "اتصال کانال ناموفق بود.", 400);
+        }
+        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException)
+        {
+            channel.IsConnected = false;
+            channel.LastConnectionCheckAt = DateTime.UtcNow;
+            await _database.SaveChangesAsync(cancellationToken);
+            return ResultDto.Fail("اطلاعات رمزنگاری‌شده اتصال قابل بازیابی نیست.", 500);
+        }
     }
 
     public async Task<ResultDto> DeleteAsync(
