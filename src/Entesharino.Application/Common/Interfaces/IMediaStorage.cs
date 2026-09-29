@@ -11,6 +11,10 @@ public interface IMediaStorage
     Task DeleteAsync(
         string fileUrl,
         CancellationToken cancellationToken = default);
+
+    Task<Stream> OpenReadAsync(
+        string fileUrl,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record MediaStorageResult(
