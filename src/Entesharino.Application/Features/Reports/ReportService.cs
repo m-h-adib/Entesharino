@@ -138,6 +138,140 @@ public sealed class ReportService : IReportService
         });
     }
 
+
+    public async Task<ResultDto<DeliveryReportDto>> GetDeliveryReportAsync(
+        DeliveryReportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = _currentUser.UserId;
+        if (!userId.HasValue)
+            return ResultDto<DeliveryReportDto>.Fail("کاربر جاری شناسایی نشد.", 401);
+
+        if (request.From.HasValue && request.To.HasValue && request.From > request.To)
+            return ResultDto<DeliveryReportDto>.Fail("بازه زمانی نامعتبر است.");
+
+        var page = Math.Max(1, request.Page);
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var toExclusive = request.To?.Date.AddDays(1);
+
+        var query = _database.PostChannels.AsNoTracking()
+            .Where(x => !x.IsRemoved && x.Post.UserId == userId.Value && !x.Post.IsRemoved);
+
+        if (request.ChannelId.HasValue)
+            query = query.Where(x => x.ChannelId == request.ChannelId.Value);
+        if (request.Platform.HasValue)
+            query = query.Where(x => x.Channel.Platform == request.Platform.Value);
+        if (request.Status.HasValue)
+            query = query.Where(x => x.Status == request.Status.Value);
+        if (request.From.HasValue)
+            query = query.Where(x => x.Post.CreatedAt >= request.From.Value);
+        if (toExclusive.HasValue)
+            query = query.Where(x => x.Post.CreatedAt < toExclusive.Value);
+
+        var total = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new DeliveryReportItemDto
+            {
+                PostId = x.PostId,
+                PostTitle = x.Post.Title,
+                ChannelId = x.ChannelId,
+                ChannelName = x.Channel.Name,
+                Platform = x.Channel.Platform,
+                Status = x.Status,
+                RetryCount = x.RetryCount,
+                SentAt = x.SentAt,
+                ScheduledAt = x.ScheduledAt,
+                ExternalMessageId = x.ExternalMessageId,
+                ErrorMessage = x.ErrorMessage
+            })
+            .ToListAsync(cancellationToken);
+
+        return ResultDto<DeliveryReportDto>.Ok(new DeliveryReportDto
+        {
+            TotalCount = total,
+            Page = page,
+            PageSize = pageSize,
+            Items = items
+        });
+    }
+
+    public async Task<ResultDto<DeliverySummaryDto>> GetDeliverySummaryAsync(
+        DashboardRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = _currentUser.UserId;
+        if (!userId.HasValue)
+            return ResultDto<DeliverySummaryDto>.Fail("کاربر جاری شناسایی نشد.", 401);
+
+        var toExclusive = request.To?.Date.AddDays(1);
+        var query = _database.PostChannels.AsNoTracking()
+            .Where(x => !x.IsRemoved && x.Post.UserId == userId.Value && !x.Post.IsRemoved);
+
+        if (request.From.HasValue)
+            query = query.Where(x => x.Post.CreatedAt >= request.From.Value);
+        if (toExclusive.HasValue)
+            query = query.Where(x => x.Post.CreatedAt < toExclusive.Value);
+
+        var grouped = await query
+            .GroupBy(x => x.Status)
+            .Select(x => new { x.Key, Count = x.Count() })
+            .ToListAsync(cancellationToken);
+        var counts = grouped.ToDictionary(x => x.Key, x => x.Count);
+
+        var channels = await query
+            .GroupBy(x => new { x.ChannelId, x.Channel.Name, x.Channel.Platform })
+            .Select(g => new ChannelDeliverySummaryDto
+            {
+                ChannelId = g.Key.ChannelId,
+                ChannelName = g.Key.Name,
+                Platform = g.Key.Platform,
+                Total = g.Count(),
+                Sent = g.Count(x => x.Status == DeliveryStatus.Sent),
+                Pending = g.Count(x => x.Status == DeliveryStatus.Pending),
+                Processing = g.Count(x => x.Status == DeliveryStatus.Processing),
+                Failed = g.Count(x => x.Status == DeliveryStatus.Failed),
+                Cancelled = g.Count(x => x.Status == DeliveryStatus.Cancelled)
+            })
+            .OrderByDescending(x => x.Total)
+            .ToListAsync(cancellationToken);
+
+        var failures = await query
+            .Where(x => x.Status == DeliveryStatus.Failed)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(10)
+            .Select(x => new DeliveryReportItemDto
+            {
+                PostId = x.PostId,
+                PostTitle = x.Post.Title,
+                ChannelId = x.ChannelId,
+                ChannelName = x.Channel.Name,
+                Platform = x.Channel.Platform,
+                Status = x.Status,
+                RetryCount = x.RetryCount,
+                SentAt = x.SentAt,
+                ScheduledAt = x.ScheduledAt,
+                ExternalMessageId = x.ExternalMessageId,
+                ErrorMessage = x.ErrorMessage
+            })
+            .ToListAsync(cancellationToken);
+
+        return ResultDto<DeliverySummaryDto>.Ok(new DeliverySummaryDto
+        {
+            Total = counts.Values.Sum(),
+            Sent = Get(counts, DeliveryStatus.Sent),
+            Pending = Get(counts, DeliveryStatus.Pending),
+            Processing = Get(counts, DeliveryStatus.Processing),
+            Failed = Get(counts, DeliveryStatus.Failed),
+            Cancelled = Get(counts, DeliveryStatus.Cancelled),
+            Channels = channels,
+            RecentFailures = failures
+        });
+    }
+
     private static int Get<T>(
         IReadOnlyDictionary<T, int> counts,
         T key)
