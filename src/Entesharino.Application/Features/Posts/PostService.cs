@@ -14,19 +14,22 @@ public sealed class PostService : IPostService
     private readonly ISecretProtector _secretProtector;
     private readonly IMessageSenderFactory _senderFactory;
     private readonly IPostScheduler _postScheduler;
+    private readonly IPostDeliveryRetryScheduler _retryScheduler;
 
     public PostService(
         IDatabaseContext database,
         ICurrentUserService currentUser,
         ISecretProtector secretProtector,
         IMessageSenderFactory senderFactory,
-        IPostScheduler postScheduler)
+        IPostScheduler postScheduler,
+        IPostDeliveryRetryScheduler retryScheduler)
     {
         _database = database;
         _currentUser = currentUser;
         _secretProtector = secretProtector;
         _senderFactory = senderFactory;
         _postScheduler = postScheduler;
+        _retryScheduler = retryScheduler;
     }
 
     public async Task<ResultOfList<PostListItemDto>> GetListAsync(
@@ -488,6 +491,14 @@ public sealed class PostService : IPostService
 
             attempt.CompletedAt = DateTime.UtcNow;
             await _database.SaveChangesAsync(cancellationToken);
+
+            if (target.Status == DeliveryStatus.Failed && target.RetryCount < 5)
+            {
+                await _retryScheduler.ScheduleAsync(
+                    target.Id,
+                    target.RetryCount,
+                    cancellationToken);
+            }
         }
 
         var finalTargets = await _database.PostChannels
