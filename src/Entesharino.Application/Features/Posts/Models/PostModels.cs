@@ -43,6 +43,46 @@ public sealed class PostMediaDto
     public long FileSize { get; init; }
 }
 
+public sealed class PostMediaDeliveryReportDto
+{
+    public long PostId { get; init; }
+    public string PostTitle { get; init; } = string.Empty;
+    public PostStatus PostStatus { get; init; }
+    public int TotalMedia { get; init; }
+    public int TotalChannels { get; init; }
+    public int TotalDeliveries { get; init; }
+    public int SentCount { get; init; }
+    public int PendingCount { get; init; }
+    public int ProcessingCount { get; init; }
+    public int FailedCount { get; init; }
+    public IReadOnlyList<PostMediaDeliveryChannelDto> Channels { get; init; } = [];
+}
+
+public sealed class PostMediaDeliveryChannelDto
+{
+    public long ChannelId { get; init; }
+    public string ChannelName { get; init; } = string.Empty;
+    public PlatformType Platform { get; init; }
+    public DeliveryStatus ChannelStatus { get; init; }
+    public DateTime? ChannelSentAt { get; init; }
+    public string? ChannelErrorMessage { get; init; }
+    public int ChannelRetryCount { get; init; }
+    public IReadOnlyList<PostMediaDeliveryItemDto> Media { get; init; } = [];
+}
+
+public sealed class PostMediaDeliveryItemDto
+{
+    public long MediaId { get; init; }
+    public string FileName { get; init; } = string.Empty;
+    public MediaType MediaType { get; init; }
+    public long FileSize { get; init; }
+    public DeliveryStatus Status { get; init; }
+    public DateTime? SentAt { get; init; }
+    public string? ExternalMessageId { get; init; }
+    public string? ErrorMessage { get; init; }
+    public int RetryCount { get; init; }
+}
+
 public sealed class PostDetailsDto
 {
     public long Id { get; init; }
