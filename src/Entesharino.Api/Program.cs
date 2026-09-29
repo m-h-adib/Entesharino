@@ -44,6 +44,9 @@ app.UseHttpsRedirection();
 app.UseApiMiddlewares();
 app.UseAuthentication();
 app.UseAuthorization();
+
+await app.InitializeDatabaseAsync();
+
 app.MapControllers();
 
 app.Run();
