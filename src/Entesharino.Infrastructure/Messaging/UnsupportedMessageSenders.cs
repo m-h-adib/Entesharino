@@ -28,11 +28,6 @@ public sealed class EitaaMessageSender : UnsupportedMessageSender
     public override PlatformType Platform => PlatformType.Eitaa;
 }
 
-public sealed class BaleMessageSender : UnsupportedMessageSender
-{
-    public override PlatformType Platform => PlatformType.Bale;
-}
-
 public sealed class RubikaMessageSender : UnsupportedMessageSender
 {
     public override PlatformType Platform => PlatformType.Rubika;
