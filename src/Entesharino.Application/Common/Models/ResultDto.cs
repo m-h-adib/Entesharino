@@ -5,6 +5,7 @@ public class ResultDto
     public bool Success { get; set; }
     public string? Message { get; set; }
     public int StatusCode { get; set; }
+    public Dictionary<string, string[]>? Errors { get; set; }
 
     public static ResultDto Ok(
         string? message = null,
@@ -18,12 +19,14 @@ public class ResultDto
 
     public static ResultDto Fail(
         string message,
-        int statusCode = 400) =>
+        int statusCode = 400,
+        Dictionary<string, string[]>? errors = null) =>
         new()
         {
             Success = false,
             Message = message,
-            StatusCode = statusCode
+            StatusCode = statusCode,
+            Errors = errors
         };
 }
 
@@ -45,12 +48,14 @@ public class ResultDto<T> : ResultDto
 
     public static new ResultDto<T> Fail(
         string message,
-        int statusCode = 400) =>
+        int statusCode = 400,
+        Dictionary<string, string[]>? errors = null) =>
         new()
         {
             Success = false,
             Message = message,
-            StatusCode = statusCode
+            StatusCode = statusCode,
+            Errors = errors
         };
 }
 
@@ -75,11 +80,13 @@ public class ResultOfList<T> : ResultDto
 
     public static new ResultOfList<T> Fail(
         string message,
-        int statusCode = 400) =>
+        int statusCode = 400,
+        Dictionary<string, string[]>? errors = null) =>
         new()
         {
             Success = false,
             Message = message,
-            StatusCode = statusCode
+            StatusCode = statusCode,
+            Errors = errors
         };
 }
