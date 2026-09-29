@@ -27,6 +27,7 @@ public sealed class PostDeliveryService : IPostDeliveryService
         _secretProtector = secretProtector;
         _senderFactory = senderFactory;
         _retryScheduler = retryScheduler;
+        _mediaStorage = mediaStorage;
     }
 
     public async Task<ResultDto> RetryAsync(
