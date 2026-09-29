@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Hangfire;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Entesharino.Application.Common.Interfaces;
@@ -10,6 +11,7 @@ using Entesharino.Application.Features.Roles;
 using Entesharino.Application.Features.Users;
 using Entesharino.Infrastructure.Persistence;
 using Entesharino.Infrastructure.Security;
+using Entesharino.Infrastructure.Scheduling;
 
 namespace Entesharino.Infrastructure;
 
@@ -25,6 +27,15 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(connectionString));
 
+        services.AddHangfire(config =>
+            config
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UseSqlServerStorage(connectionString));
+
+        services.AddHangfireServer();
+
         services.AddScoped<IDatabaseContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
@@ -33,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<ISecretProtector, DataProtectionSecretProtector>();
         services.AddScoped<IMessageSenderFactory, MessageSenderFactory>();
+        services.AddScoped<IPostScheduler, HangfirePostScheduler>();
 
         services.AddHttpClient<TelegramMessageSender>(client =>
         {
