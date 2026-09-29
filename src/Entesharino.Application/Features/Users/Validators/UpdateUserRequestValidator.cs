@@ -9,15 +9,15 @@ public sealed class UpdateUserRequestValidator : AbstractValidator<UpdateUserReq
     {
         RuleFor(x => x.FirstName)
             .NotEmpty().WithMessage("نام الزامی است.")
-            .MaximumLength(100).WithMessage("نام نمی‌تواند بیشتر از 100 کاراکتر باشد.");
+            .MaximumLength(100).WithMessage("نام نمی‌تواند بیشتر از ۱۰۰ کاراکتر باشد.");
 
         RuleFor(x => x.LastName)
             .NotEmpty().WithMessage("نام خانوادگی الزامی است.")
-            .MaximumLength(100).WithMessage("نام خانوادگی نمی‌تواند بیشتر از 100 کاراکتر باشد.");
+            .MaximumLength(100).WithMessage("نام خانوادگی نمی‌تواند بیشتر از ۱۰۰ کاراکتر باشد.");
 
         RuleFor(x => x.Email)
             .NotEmpty().WithMessage("ایمیل الزامی است.")
-            .EmailAddress().WithMessage("فرمت ایمیل معتبر نیست.")
-            .MaximumLength(200).WithMessage("ایمیل نمی‌تواند بیشتر از 200 کاراکتر باشد.");
+            .EmailAddress().WithMessage("فرمت ایمیل وارد شده صحیح نیست.")
+            .MaximumLength(200).WithMessage("ایمیل نمی‌تواند بیشتر از ۲۰۰ کاراکتر باشد.");
     }
 }
