@@ -23,11 +23,6 @@ public abstract class UnsupportedMessageSender : IMessageSender
             ErrorMessage: $"ارسال پیام به پلتفرم {Platform} هنوز پیاده‌سازی نشده است."));
 }
 
-public sealed class EitaaMessageSender : UnsupportedMessageSender
-{
-    public override PlatformType Platform => PlatformType.Eitaa;
-}
-
 public sealed class RubikaMessageSender : UnsupportedMessageSender
 {
     public override PlatformType Platform => PlatformType.Rubika;
