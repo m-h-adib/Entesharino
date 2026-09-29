@@ -1,13 +1,23 @@
 using System.Text;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Entesharino.Api.Authorization;
 using Entesharino.Api.Extensions;
+using Entesharino.Api.Validation;
+using Entesharino.Application.Features.Auth.Validators;
 using Entesharino.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.AddService<FluentValidationFilter>();
+});
+
+builder.Services.AddScoped<FluentValidationFilter>();
+builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
+
 builder.Services.AddOpenApi();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddPermissionAuthorization();
