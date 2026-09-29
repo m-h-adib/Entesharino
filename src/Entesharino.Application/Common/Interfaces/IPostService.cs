@@ -27,6 +27,11 @@ public interface IPostService
         IFormFile file,
         CancellationToken cancellationToken = default);
 
+    Task<ResultDto> DeleteMediaAsync(
+        long postId,
+        long mediaId,
+        CancellationToken cancellationToken = default);
+
     Task<ResultDto> DeleteAsync(
         long id,
         CancellationToken cancellationToken = default);
