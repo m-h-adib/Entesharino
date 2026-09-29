@@ -7,8 +7,17 @@ public sealed class UpdateUserRequestValidator : AbstractValidator<UpdateUserReq
 {
     public UpdateUserRequestValidator()
     {
-        RuleFor(x => x.FirstName).NotEmpty().MaximumLength(100);
-        RuleFor(x => x.LastName).NotEmpty().MaximumLength(100);
-        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(200);
+        RuleFor(x => x.FirstName)
+            .NotEmpty().WithMessage("نام الزامی است.")
+            .MaximumLength(100).WithMessage("نام نمی‌تواند بیشتر از 100 کاراکتر باشد.");
+
+        RuleFor(x => x.LastName)
+            .NotEmpty().WithMessage("نام خانوادگی الزامی است.")
+            .MaximumLength(100).WithMessage("نام خانوادگی نمی‌تواند بیشتر از 100 کاراکتر باشد.");
+
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("ایمیل الزامی است.")
+            .EmailAddress().WithMessage("فرمت ایمیل معتبر نیست.")
+            .MaximumLength(200).WithMessage("ایمیل نمی‌تواند بیشتر از 200 کاراکتر باشد.");
     }
 }
