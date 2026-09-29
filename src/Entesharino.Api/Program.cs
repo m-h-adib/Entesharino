@@ -53,6 +53,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseApiMiddlewares();
 app.UseAuthentication();
 app.UseAuthorization();
