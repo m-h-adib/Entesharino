@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Entesharino.Application.Common.Interfaces;
+using Entesharino.Application.Common.Models;
 using Entesharino.Application.Features.Auth.Models;
 using Entesharino.Domain.Entities;
 
@@ -21,7 +22,7 @@ public sealed class AuthService : IAuthService
         _tokenService = tokenService;
     }
 
-    public async Task<AuthResult> RegisterAsync(
+    public async Task<ResultDto<AuthResponse>> RegisterAsync(
         RegisterRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -31,14 +32,14 @@ public sealed class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(username) ||
             string.IsNullOrWhiteSpace(email) ||
             string.IsNullOrWhiteSpace(request.Password))
-            return AuthResult.Failure("اطلاعات ثبت‌نام کامل نیست.");
+            return ResultDto<AuthResponse>.Fail("اطلاعات ثبت‌نام کامل نیست.");
 
         var exists = await _database.Users.AnyAsync(
             x => x.Username == username || x.Email == email,
             cancellationToken);
 
         if (exists)
-            return AuthResult.Failure("نام کاربری یا ایمیل قبلاً ثبت شده است.");
+            return ResultDto<AuthResponse>.Fail("نام کاربری یا ایمیل قبلاً ثبت شده است.");
 
         var user = new User
         {
@@ -53,31 +54,44 @@ public sealed class AuthService : IAuthService
         await _database.SaveChangesAsync(cancellationToken);
 
         var token = _tokenService.CreateAccessToken(user);
-        return AuthResult.Success(user.Id, token);
+
+        return ResultDto<AuthResponse>.Ok(
+            new AuthResponse
+            {
+                UserId = user.Id,
+                AccessToken = token
+            },
+            "ثبت‌نام با موفقیت انجام شد.");
     }
 
-    public async Task<AuthResult> LoginAsync(
+    public async Task<ResultDto<AuthResponse>> LoginAsync(
         LoginRequest request,
         CancellationToken cancellationToken = default)
     {
         var value = request.UsernameOrEmail.Trim();
         var email = value.ToLowerInvariant();
 
-        var user = await _database.Users
-            .FirstOrDefaultAsync(
-                x => x.Username == value || x.Email == email,
-                cancellationToken);
+        var user = await _database.Users.FirstOrDefaultAsync(
+            x => x.Username == value || x.Email == email,
+            cancellationToken);
 
         if (user is null || user.IsRemoved || !user.IsActive)
-            return AuthResult.Failure("نام کاربری یا رمز عبور صحیح نیست.");
+            return ResultDto<AuthResponse>.Fail("نام کاربری یا رمز عبور صحیح نیست.");
 
         if (!_passwordHasher.Verify(request.Password, user.PasswordHash))
-            return AuthResult.Failure("نام کاربری یا رمز عبور صحیح نیست.");
+            return ResultDto<AuthResponse>.Fail("نام کاربری یا رمز عبور صحیح نیست.");
 
         user.LastLoginAt = DateTime.UtcNow;
         await _database.SaveChangesAsync(cancellationToken);
 
         var token = _tokenService.CreateAccessToken(user);
-        return AuthResult.Success(user.Id, token);
+
+        return ResultDto<AuthResponse>.Ok(
+            new AuthResponse
+            {
+                UserId = user.Id,
+                AccessToken = token
+            },
+            "ورود با موفقیت انجام شد.");
     }
 }
