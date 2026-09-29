@@ -11,4 +11,6 @@ public interface IRoleService
     Task<ResultDto<RoleDetailsDto>> CreateAsync(CreateRoleRequest request, CancellationToken cancellationToken = default);
     Task<ResultDto<RoleDetailsDto>> UpdateAsync(long id, UpdateRoleRequest request, CancellationToken cancellationToken = default);
     Task<ResultDto> SetPermissionsAsync(long id, SetRolePermissionsRequest request, CancellationToken cancellationToken = default);
+    Task<ResultDto> SetActiveAsync(long id, bool isActive, CancellationToken cancellationToken = default);
+    Task<ResultDto> DeleteAsync(long id, CancellationToken cancellationToken = default);
 }
