@@ -368,7 +368,7 @@ public sealed class PostDeliveryService : IPostDeliveryService
                 ? PostStatus.Completed
                 : sent > 0
                     ? PostStatus.PartiallyCompleted
-                    : processing > 0 || pending > 0 || retryableFailures > 0
+                    : processing > 0 || pending > 0 || hasRetryableFailure > 0
                         ? PostStatus.Processing
                         : failed == channels.Count
                             ? PostStatus.Failed
