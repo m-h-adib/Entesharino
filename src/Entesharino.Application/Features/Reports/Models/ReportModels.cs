@@ -58,3 +58,61 @@ public sealed class DashboardMediaStats
     public int Failed { get; init; }
     public int Cancelled { get; init; }
 }
+
+
+public sealed class DeliveryReportRequest : DashboardRequest
+{
+    public long? ChannelId { get; set; }
+    public PlatformType? Platform { get; set; }
+    public DeliveryStatus? Status { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
+}
+
+public sealed class DeliveryReportItemDto
+{
+    public long PostId { get; init; }
+    public string PostTitle { get; init; } = string.Empty;
+    public long ChannelId { get; init; }
+    public string ChannelName { get; init; } = string.Empty;
+    public PlatformType Platform { get; init; }
+    public DeliveryStatus Status { get; init; }
+    public int RetryCount { get; init; }
+    public DateTime? SentAt { get; init; }
+    public DateTime? ScheduledAt { get; init; }
+    public string? ExternalMessageId { get; init; }
+    public string? ErrorMessage { get; init; }
+}
+
+public sealed class DeliveryReportDto
+{
+    public int TotalCount { get; init; }
+    public int Page { get; init; }
+    public int PageSize { get; init; }
+    public IReadOnlyList<DeliveryReportItemDto> Items { get; init; } = [];
+}
+
+public sealed class ChannelDeliverySummaryDto
+{
+    public long ChannelId { get; init; }
+    public string ChannelName { get; init; } = string.Empty;
+    public PlatformType Platform { get; init; }
+    public int Total { get; init; }
+    public int Sent { get; init; }
+    public int Pending { get; init; }
+    public int Processing { get; init; }
+    public int Failed { get; init; }
+    public int Cancelled { get; init; }
+}
+
+public sealed class DeliverySummaryDto
+{
+    public int Total { get; init; }
+    public int Sent { get; init; }
+    public int Pending { get; init; }
+    public int Processing { get; init; }
+    public int Failed { get; init; }
+    public int Cancelled { get; init; }
+    public IReadOnlyList<ChannelDeliverySummaryDto> Channels { get; init; } = [];
+    public IReadOnlyList<DeliveryReportItemDto> RecentFailures { get; init; } = [];
+}
