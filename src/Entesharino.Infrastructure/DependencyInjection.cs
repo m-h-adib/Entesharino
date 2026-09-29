@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Entesharino.Application.Common.Interfaces;
 using Entesharino.Application.Features.Auth;
 using Entesharino.Application.Features.Channels;
+using Entesharino.Application.Features.Posts;
 using Entesharino.Infrastructure.Messaging;
 using Entesharino.Application.Features.Roles;
 using Entesharino.Application.Features.Users;
@@ -28,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IChannelService, ChannelService>();
+        services.AddScoped<IPostService, PostService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<ISecretProtector, DataProtectionSecretProtector>();
         services.AddScoped<IMessageSenderFactory, MessageSenderFactory>();
