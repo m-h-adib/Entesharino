@@ -4,6 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+  <FrameworkReference Include="Microsoft.AspNetCore.App" />
   <ItemGroup>
     <ProjectReference Include="..\Entesharino.Domain\Entesharino.Domain.csproj" />
     <ProjectReference Include="..\Entesharino.Application\Entesharino.Application.csproj" />
