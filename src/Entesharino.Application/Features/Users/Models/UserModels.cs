@@ -45,6 +45,11 @@ public sealed class AssignRoleRequest
     public long RoleId { get; set; }
 }
 
+public sealed class ResetUserPasswordRequest
+{
+    public string Password { get; set; } = string.Empty;
+}
+
 public sealed class UserListRequest
 {
     public int Page { get; set; } = 1;
