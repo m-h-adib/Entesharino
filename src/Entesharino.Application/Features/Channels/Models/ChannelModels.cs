@@ -10,7 +10,7 @@ public sealed class ChannelListRequest
     public string? Search { get; set; }
 }
 
-public sealed class ChannelListItemDto
+public class ChannelListItemDto
 {
     public long Id { get; init; }
     public PlatformType Platform { get; init; }
