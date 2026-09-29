@@ -205,26 +205,40 @@ public sealed class PostDeliveryService : IPostDeliveryService
             delivery.ErrorMessage = null;
             delivery.RetryCount++;
 
-            await using var stream = await _mediaStorage.OpenReadAsync(
-                item.FileUrl,
-                cancellationToken);
+            try
+            {
+                await using var stream = await _mediaStorage.OpenReadAsync(
+                    item.FileUrl,
+                    cancellationToken);
 
-            lastResult = await sender.SendMediaAsync(
-                credentials,
-                new MediaMessage(
-                    item.MediaType,
-                    stream,
-                    item.FileName,
-                    ResolveMediaContentType(item.MediaType, item.FileName),
-                    captionUsed ? null : post.Content),
-                cancellationToken);
+                lastResult = await sender.SendMediaAsync(
+                    credentials,
+                    new MediaMessage(
+                        item.MediaType,
+                        stream,
+                        item.FileName,
+                        ResolveMediaContentType(item.MediaType, item.FileName),
+                        captionUsed ? null : post.Content),
+                    cancellationToken);
 
-            if (!lastResult.Success)
+                if (!lastResult.Success)
+                {
+                    delivery.Status = DeliveryStatus.Failed;
+                    delivery.ErrorMessage = lastResult.ErrorMessage;
+                    await _database.SaveChangesAsync(cancellationToken);
+                    return lastResult;
+                }
+            }
+            catch (Exception ex) when (
+                ex is IOException ||
+                ex is UnauthorizedAccessException ||
+                ex is HttpRequestException ||
+                ex is InvalidOperationException)
             {
                 delivery.Status = DeliveryStatus.Failed;
-                delivery.ErrorMessage = lastResult.ErrorMessage;
+                delivery.ErrorMessage = ex.Message;
                 await _database.SaveChangesAsync(cancellationToken);
-                return lastResult;
+                throw;
             }
 
             delivery.Status = DeliveryStatus.Sent;
@@ -332,6 +346,8 @@ public sealed class PostDeliveryService : IPostDeliveryService
         var failed = channels.Count(x => x == DeliveryStatus.Failed);
         var processing = channels.Count(x => x == DeliveryStatus.Processing);
         var pending = channels.Count(x => x == DeliveryStatus.Pending);
+        var retryableFailures = channels.Count(x =>
+            x == DeliveryStatus.Failed);
 
         var isRecurring = post.Schedule is not null &&
             post.Schedule.ScheduleType is
@@ -347,10 +363,10 @@ public sealed class PostDeliveryService : IPostDeliveryService
                 ? PostStatus.Completed
                 : sent > 0
                     ? PostStatus.PartiallyCompleted
-                    : failed == channels.Count
-                        ? PostStatus.Failed
-                        : processing > 0 || pending > 0
-                            ? PostStatus.Processing
+                    : processing > 0 || pending > 0 || retryableFailures > 0
+                        ? PostStatus.Processing
+                        : failed == channels.Count
+                            ? PostStatus.Failed
                             : PostStatus.Failed;
 
         await _database.SaveChangesAsync(cancellationToken);
