@@ -11,6 +11,8 @@ namespace Entesharino.Infrastructure.Security;
 
 public sealed class JwtTokenService : ITokenService
 {
+    private const string PermissionClaim = "permission";
+
     private readonly IConfiguration _configuration;
     private readonly IDatabaseContext _database;
 
@@ -39,6 +41,15 @@ public sealed class JwtTokenService : ITokenService
             .Distinct()
             .ToListAsync(cancellationToken);
 
+        var permissions = await _database.UserRoles
+            .Where(x => x.UserId == user.Id)
+            .Where(x => x.Role.IsActive && !x.Role.IsRemoved)
+            .SelectMany(x => x.Role.RolePermissions)
+            .Where(x => x.Permission.IsActive && !x.Permission.IsRemoved)
+            .Select(x => x.Permission.Code)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
@@ -47,8 +58,8 @@ public sealed class JwtTokenService : ITokenService
             new(ClaimTypes.Email, user.Email)
         };
 
-        claims.AddRange(
-            roles.Select(role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange(permissions.Select(permission => new Claim(PermissionClaim, permission)));
 
         var credentials = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
