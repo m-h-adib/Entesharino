@@ -22,10 +22,7 @@ public sealed class AuthController : ControllerBase
     {
         var result = await _authService.RegisterAsync(request, cancellationToken);
 
-        if (!result.Success)
-            return BadRequest(result);
-
-        return Ok(result);
+        return StatusCode(result.StatusCode, result);
     }
 
     [HttpPost("login")]
@@ -35,9 +32,6 @@ public sealed class AuthController : ControllerBase
     {
         var result = await _authService.LoginAsync(request, cancellationToken);
 
-        if (!result.Success)
-            return Unauthorized(result);
-
-        return Ok(result);
+        return StatusCode(result.StatusCode, result);
     }
 }
