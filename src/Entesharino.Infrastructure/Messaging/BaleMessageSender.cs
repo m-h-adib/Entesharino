@@ -21,7 +21,7 @@ public sealed class BaleMessageSender : IMessageSender
         CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.GetAsync(
-            $"bot{credentials.AccessToken}/getMe",
+            BuildUrl($"bot{credentials.AccessToken}/getMe"),
             cancellationToken);
 
         return await ParseResultAsync(response, cancellationToken);
@@ -39,7 +39,7 @@ public sealed class BaleMessageSender : IMessageSender
         };
 
         var response = await _httpClient.PostAsJsonAsync(
-            $"bot{credentials.AccessToken}/sendMessage",
+            BuildUrl($"bot{credentials.AccessToken}/sendMessage"),
             payload,
             cancellationToken);
 
@@ -64,11 +64,21 @@ public sealed class BaleMessageSender : IMessageSender
 
         return BotApiMediaSenderHelper.SendAsync(
             _httpClient,
-            $"bot{credentials.AccessToken}/{method}",
+            BuildUrl($"bot{credentials.AccessToken}/{method}"),
             credentials.Identifier,
             media,
             fieldName,
             cancellationToken);
+    }
+
+    private Uri BuildUrl(string endpoint)
+    {
+        if (_httpClient.BaseAddress is null)
+            throw new InvalidOperationException("BaseAddress برای Bale HttpClient تنظیم نشده است.");
+
+        return new Uri(
+            _httpClient.BaseAddress.AbsoluteUri.TrimEnd('/') + "/" + endpoint,
+            UriKind.Absolute);
     }
 
     private static async Task<SenderResult> ParseResultAsync(
