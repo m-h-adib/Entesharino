@@ -72,6 +72,17 @@ public sealed class PostsController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    [HttpDelete("{id:long}/media/{mediaId:long}")]
+    [HasPermission(PermissionCodes.PostsManage)]
+    public async Task<IActionResult> DeleteMedia(
+        long id,
+        long mediaId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _postService.DeleteMediaAsync(id, mediaId, cancellationToken);
+        return StatusCode(result.StatusCode, result);
+    }
+
     [HttpDelete("{id:long}")]
     [HasPermission(PermissionCodes.PostsManage)]
     public async Task<IActionResult> Delete(
