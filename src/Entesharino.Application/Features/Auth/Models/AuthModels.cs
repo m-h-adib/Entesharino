@@ -15,16 +15,8 @@ public sealed class LoginRequest
     public string Password { get; set; } = string.Empty;
 }
 
-public sealed class AuthResult
+public sealed class AuthResponse
 {
-    public bool Succeeded { get; init; }
-    public string? Message { get; init; }
-    public long? UserId { get; init; }
-    public string? AccessToken { get; init; }
-
-    public static AuthResult Success(long userId, string accessToken) =>
-        new() { Succeeded = true, UserId = userId, AccessToken = accessToken };
-
-    public static AuthResult Failure(string message) =>
-        new() { Succeeded = false, Message = message };
+    public long UserId { get; init; }
+    public string AccessToken { get; init; } = string.Empty;
 }
