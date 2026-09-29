@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Entesharino.Application.Common.Interfaces;
@@ -11,13 +12,19 @@ namespace Entesharino.Infrastructure.Security;
 public sealed class JwtTokenService : ITokenService
 {
     private readonly IConfiguration _configuration;
+    private readonly IDatabaseContext _database;
 
-    public JwtTokenService(IConfiguration configuration)
+    public JwtTokenService(
+        IConfiguration configuration,
+        IDatabaseContext database)
     {
         _configuration = configuration;
+        _database = database;
     }
 
-    public string CreateAccessToken(User user)
+    public async Task<string> CreateAccessTokenAsync(
+        User user,
+        CancellationToken cancellationToken = default)
     {
         var key = _configuration["Jwt:Key"]
             ?? throw new InvalidOperationException("Jwt:Key is not configured.");
@@ -25,13 +32,23 @@ public sealed class JwtTokenService : ITokenService
         var issuer = _configuration["Jwt:Issuer"];
         var audience = _configuration["Jwt:Audience"];
 
-        var claims = new[]
+        var roles = await _database.UserRoles
+            .Where(x => x.UserId == user.Id)
+            .Where(x => x.Role.IsActive && !x.Role.IsRemoved)
+            .Select(x => x.Role.Name)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Email, user.Email)
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Username),
+            new(ClaimTypes.Email, user.Email)
         };
+
+        claims.AddRange(
+            roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
         var credentials = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
