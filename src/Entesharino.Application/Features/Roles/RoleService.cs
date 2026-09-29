@@ -104,3 +104,40 @@ public sealed class RoleService : IRoleService
         return ResultDto.Ok("مجوزهای نقش با موفقیت به‌روزرسانی شد.");
     }
 }
+
+
+    public async Task<ResultDto> SetActiveAsync(long id, bool isActive, CancellationToken cancellationToken = default)
+    {
+        var role = await _database.Roles
+            .SingleOrDefaultAsync(x => x.Id == id && !x.IsRemoved, cancellationToken);
+
+        if (role is null)
+            return ResultDto.Fail("نقش موردنظر پیدا نشد.", 404);
+
+        role.IsActive = isActive;
+        await _database.SaveChangesAsync(cancellationToken);
+
+        return ResultDto.Ok(isActive ? "نقش فعال شد." : "نقش غیرفعال شد.");
+    }
+
+    public async Task<ResultDto> DeleteAsync(long id, CancellationToken cancellationToken = default)
+    {
+        var role = await _database.Roles
+            .SingleOrDefaultAsync(x => x.Id == id && !x.IsRemoved, cancellationToken);
+
+        if (role is null)
+            return ResultDto.Fail("نقش موردنظر پیدا نشد.", 404);
+
+        var hasUsers = await _database.UserRoles
+            .AnyAsync(x => x.RoleId == id, cancellationToken);
+
+        if (hasUsers)
+            return ResultDto.Fail("این نقش به کاربر اختصاص داده شده و قابل حذف نیست.", 409);
+
+        role.IsRemoved = true;
+        role.IsActive = false;
+
+        await _database.SaveChangesAsync(cancellationToken);
+        return ResultDto.Ok("نقش با موفقیت حذف شد.");
+    }
+}
