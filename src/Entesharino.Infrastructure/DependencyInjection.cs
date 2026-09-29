@@ -12,6 +12,7 @@ using Entesharino.Application.Features.Users;
 using Entesharino.Infrastructure.Persistence;
 using Entesharino.Infrastructure.Security;
 using Entesharino.Infrastructure.Scheduling;
+using Entesharino.Infrastructure.Storage;
 
 namespace Entesharino.Infrastructure;
 
@@ -47,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped<ISecretProtector, DataProtectionSecretProtector>();
         services.AddScoped<IMessageSenderFactory, MessageSenderFactory>();
         services.AddScoped<IPostScheduler, HangfirePostScheduler>();
+        services.AddScoped<IMediaStorage, LocalMediaStorage>();
 
         services.AddHttpClient<TelegramMessageSender>(client =>
         {
