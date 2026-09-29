@@ -2,7 +2,7 @@ using Entesharino.Domain.Enums;
 
 namespace Entesharino.Application.Features.Reports.Models;
 
-public sealed class DashboardRequest
+public class DashboardRequest
 {
     public DateTime? From { get; set; }
     public DateTime? To { get; set; }
