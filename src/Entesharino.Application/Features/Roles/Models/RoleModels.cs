@@ -40,3 +40,8 @@ public sealed class SetRolePermissionsRequest
 {
     public IReadOnlyList<long> PermissionIds { get; set; } = [];
 }
+
+public sealed class SetRoleActiveRequest
+{
+    public bool IsActive { get; set; }
+}
