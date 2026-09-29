@@ -30,15 +30,6 @@ public sealed class AuthService : IAuthService
         var username = request.Username.Trim();
         var email = request.Email.Trim().ToLowerInvariant();
 
-        if (string.IsNullOrWhiteSpace(username) ||
-            string.IsNullOrWhiteSpace(email) ||
-            string.IsNullOrWhiteSpace(request.Password))
-        {
-            return ResultDto<AuthResponse>.Fail(
-                "اطلاعات ثبت‌نام کامل نیست.",
-                400);
-        }
-
         var exists = await _database.Users.AnyAsync(
             x => x.Username == username || x.Email == email,
             cancellationToken);
