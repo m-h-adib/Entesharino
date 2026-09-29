@@ -17,6 +17,7 @@ public class ApplicationDbContext : DbContext, IDatabaseContext
     public DbSet<ChannelConnection> ChannelConnections => Set<ChannelConnection>();
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<PostMedia> PostMedia => Set<PostMedia>();
+    public DbSet<PostMediaDelivery> PostMediaDeliveries => Set<PostMediaDelivery>();
     public DbSet<PostChannel> PostChannels => Set<PostChannel>();
     public DbSet<DeliveryAttempt> DeliveryAttempts => Set<DeliveryAttempt>();
     public DbSet<PostSchedule> PostSchedules => Set<PostSchedule>();
