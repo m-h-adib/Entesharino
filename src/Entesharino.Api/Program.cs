@@ -19,6 +19,7 @@ builder.Services.AddScoped<FluentValidationFilter>();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
 builder.Services.AddOpenApi();
+builder.Services.AddSwaggerGen();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddPermissionAuthorization();
 
@@ -51,6 +52,9 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
