@@ -288,6 +288,22 @@ public sealed class PostService : IPostService
         if (file.Length > maxBytes)
             return ResultDto<PostMediaDto>.Fail("حداکثر حجم فایل 50 مگابایت است.", 400);
 
+        const int maxMediaCount = 10;
+        const long maxTotalBytes = 200L * 1024 * 1024;
+
+        var currentMedia = await _database.PostMedia
+            .Where(x => x.PostId == postId && !x.IsRemoved)
+            .Select(x => new { x.FileSize })
+            .ToListAsync(cancellationToken);
+
+        if (currentMedia.Count >= maxMediaCount)
+            return ResultDto<PostMediaDto>.Fail(
+                "هر پست حداکثر می‌تواند 10 فایل رسانه‌ای داشته باشد.", 400);
+
+        if (currentMedia.Sum(x => x.FileSize) + file.Length > maxTotalBytes)
+            return ResultDto<PostMediaDto>.Fail(
+                "مجموع حجم فایل‌های هر پست نمی‌تواند بیشتر از 200 مگابایت باشد.", 400);
+
         var mediaType = ResolveMediaType(file.ContentType);
         if (!mediaType.HasValue)
             return ResultDto<PostMediaDto>.Fail(
@@ -361,6 +377,42 @@ public sealed class PostService : IPostService
             return MediaType.Document;
 
         return null;
+    }
+
+    public async Task<ResultDto> DeleteMediaAsync(
+        long postId,
+        long mediaId,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = _currentUser.UserId;
+        if (!userId.HasValue)
+            return ResultDto.Fail("کاربر جاری شناسایی نشد.", 401);
+
+        var media = await _database.PostMedia
+            .Include(x => x.Post)
+            .SingleOrDefaultAsync(
+                x => x.Id == mediaId &&
+                     x.PostId == postId &&
+                     x.Post.UserId == userId.Value &&
+                     !x.IsRemoved &&
+                     !x.Post.IsRemoved,
+                cancellationToken);
+
+        if (media is null)
+            return ResultDto.Fail("فایل موردنظر پیدا نشد.", 404);
+
+        if (media.Post.Status is PostStatus.Processing or PostStatus.Completed)
+            return ResultDto.Fail(
+                "پست در این وضعیت قابل ویرایش نیست.", 409);
+
+        media.IsRemoved = true;
+        media.IsActive = false;
+
+        await _database.SaveChangesAsync(cancellationToken);
+
+        await _mediaStorage.DeleteAsync(media.FileUrl, cancellationToken);
+
+        return ResultDto.Ok("فایل با موفقیت حذف شد.");
     }
 
     public async Task<ResultDto> DeleteAsync(
