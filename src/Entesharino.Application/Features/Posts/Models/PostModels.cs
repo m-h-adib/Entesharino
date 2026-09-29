@@ -41,6 +41,7 @@ public sealed class PostMediaDto
     public string FileName { get; init; } = string.Empty;
     public string FileUrl { get; init; } = string.Empty;
     public long FileSize { get; init; }
+    public IReadOnlyList<PostMediaDeliveryItemDto> Deliveries { get; init; } = [];
 }
 
 public sealed class PostMediaDeliveryReportDto
