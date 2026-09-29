@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Entesharino.Application.Common.Interfaces;
 using Entesharino.Application.Features.Auth;
+using Entesharino.Application.Features.Users;
 using Entesharino.Infrastructure.Persistence;
 using Entesharino.Infrastructure.Security;
 
@@ -22,6 +23,7 @@ public static class DependencyInjection
 
         services.AddScoped<IDatabaseContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IUserService, UserService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<ITokenService, JwtTokenService>();
 
