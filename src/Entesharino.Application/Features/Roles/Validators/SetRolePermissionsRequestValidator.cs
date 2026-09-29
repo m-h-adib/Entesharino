@@ -7,7 +7,11 @@ public sealed class SetRolePermissionsRequestValidator : AbstractValidator<SetRo
 {
     public SetRolePermissionsRequestValidator()
     {
-        RuleFor(x => x.PermissionIds).NotNull();
-        RuleForEach(x => x.PermissionIds).GreaterThan(0);
+        RuleFor(x => x.PermissionIds)
+            .NotNull().WithMessage("لیست مجوزها الزامی است.");
+
+        RuleForEach(x => x.PermissionIds)
+            .GreaterThan(0)
+            .WithMessage("شناسه هر مجوز باید بزرگ‌تر از صفر باشد.");
     }
 }
