@@ -10,11 +10,13 @@ public sealed class UserService : IUserService
 {
     private readonly IDatabaseContext _database;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly ICurrentUserService _currentUser;
 
-    public UserService(IDatabaseContext database, IPasswordHasher passwordHasher)
+    public UserService(IDatabaseContext database, IPasswordHasher passwordHasher, ICurrentUserService currentUser)
     {
         _database = database;
         _passwordHasher = passwordHasher;
+        _currentUser = currentUser;
     }
 
     public async Task<ResultOfList<UserListItemDto>> GetListAsync(UserListRequest request, CancellationToken cancellationToken = default)
@@ -177,5 +179,39 @@ public sealed class UserService : IUserService
 
         await _database.SaveChangesAsync(cancellationToken);
         return ResultDto.Ok("نقش کاربر با موفقیت تغییر کرد.");
+    }
+}
+
+
+    public async Task<ResultDto> ResetPasswordAsync(long id, string password, CancellationToken cancellationToken = default)
+    {
+        var user = await _database.Users
+            .SingleOrDefaultAsync(x => x.Id == id && !x.IsRemoved, cancellationToken);
+
+        if (user is null)
+            return ResultDto.Fail("کاربر پیدا نشد.", 404);
+
+        user.PasswordHash = _passwordHasher.Hash(password);
+        await _database.SaveChangesAsync(cancellationToken);
+
+        return ResultDto.Ok("رمز عبور کاربر با موفقیت تغییر کرد.");
+    }
+
+    public async Task<ResultDto> DeleteAsync(long id, CancellationToken cancellationToken = default)
+    {
+        if (_currentUser.UserId == id)
+            return ResultDto.Fail("حذف کاربر جاری مجاز نیست.", 400);
+
+        var user = await _database.Users
+            .SingleOrDefaultAsync(x => x.Id == id && !x.IsRemoved, cancellationToken);
+
+        if (user is null)
+            return ResultDto.Fail("کاربر پیدا نشد.", 404);
+
+        user.IsRemoved = true;
+        user.IsActive = false;
+
+        await _database.SaveChangesAsync(cancellationToken);
+        return ResultDto.Ok("کاربر با موفقیت حذف شد.");
     }
 }
