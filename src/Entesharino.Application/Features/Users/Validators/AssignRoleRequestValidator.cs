@@ -7,6 +7,8 @@ public sealed class AssignRoleRequestValidator : AbstractValidator<AssignRoleReq
 {
     public AssignRoleRequestValidator()
     {
-        RuleFor(x => x.RoleId).GreaterThan(0);
+        RuleFor(x => x.RoleId)
+            .GreaterThan(0)
+            .WithMessage("شناسه نقش باید بزرگ‌تر از صفر باشد.");
     }
 }
