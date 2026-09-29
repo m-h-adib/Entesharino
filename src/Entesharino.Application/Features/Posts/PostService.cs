@@ -560,6 +560,7 @@ public sealed class PostService : IPostService
             .Include(x => x.Channels)
                 .ThenInclude(x => x.Channel)
                     .ThenInclude(x => x.Connection)
+            .Include(x => x.Media)
             .SingleOrDefaultAsync(
                 x => x.Id == id && x.UserId == ownerUserId && !x.IsRemoved,
                 cancellationToken);
@@ -614,9 +615,10 @@ public sealed class PostService : IPostService
 
                 var sender = _senderFactory.Get(target.Channel.Platform);
 
-                var result = await sender.SendTextAsync(
+                var result = await SendPostAsync(
+                    sender,
                     credentials,
-                    post.Content,
+                    post,
                     cancellationToken);
 
                 if (result.Success)
@@ -683,6 +685,89 @@ public sealed class PostService : IPostService
                 "پست فقط به بخشی از کانال‌ها ارسال شد.", 207),
             _ => ResultDto.Fail(
                 "ارسال پست به کانال‌ها ناموفق بود.", 400)
+        };
+    }
+
+    private async Task<SenderResult> SendPostAsync(
+        IMessageSender sender,
+        ChannelCredentials credentials,
+        Post post,
+        CancellationToken cancellationToken)
+    {
+        var media = post.Media
+            .Where(x => !x.IsRemoved)
+            .OrderBy(x => x.Id)
+            .ToList();
+
+        if (media.Count == 0)
+        {
+            return await sender.SendTextAsync(
+                credentials,
+                post.Content!,
+                cancellationToken);
+        }
+
+        SenderResult? lastResult = null;
+
+        for (var index = 0; index < media.Count; index++)
+        {
+            await using var stream = await _mediaStorage.OpenReadAsync(
+                media[index].FileUrl,
+                cancellationToken);
+
+            lastResult = await sender.SendMediaAsync(
+                credentials,
+                new MediaMessage(
+                    media[index].MediaType,
+                    stream,
+                    media[index].FileName,
+                    ResolveMediaContentType(media[index].MediaType, media[index].FileName),
+                    index == 0 ? post.Content : null),
+                cancellationToken);
+
+            if (!lastResult.Success)
+                return lastResult;
+        }
+
+        return lastResult!;
+    }
+
+    private static string ResolveMediaContentType(
+        MediaType mediaType,
+        string fileName)
+    {
+        return mediaType switch
+        {
+            MediaType.Image => GetMimeType(fileName, "image/jpeg"),
+            MediaType.Video => GetMimeType(fileName, "video/mp4"),
+            MediaType.Audio => GetMimeType(fileName, "audio/mpeg"),
+            MediaType.Document => GetMimeType(fileName, "application/octet-stream"),
+            _ => "application/octet-stream"
+        };
+    }
+
+    private static string GetMimeType(string fileName, string fallback)
+    {
+        return Path.GetExtension(fileName).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".mp4" => "video/mp4",
+            ".mov" => "video/quicktime",
+            ".avi" => "video/x-msvideo",
+            ".mp3" => "audio/mpeg",
+            ".m4a" => "audio/mp4",
+            ".wav" => "audio/wav",
+            ".ogg" => "audio/ogg",
+            ".pdf" => "application/pdf",
+            ".doc" => "application/msword",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".xls" => "application/vnd.ms-excel",
+            ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".zip" => "application/zip",
+            _ => fallback
         };
     }
 
