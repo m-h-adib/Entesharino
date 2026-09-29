@@ -60,6 +60,18 @@ public sealed class PostsController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    [HttpPost("{id:long}/media")]
+    [HasPermission(PermissionCodes.PostsManage)]
+    [RequestSizeLimit(50L * 1024 * 1024)]
+    public async Task<IActionResult> UploadMedia(
+        long id,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        var result = await _postService.UploadMediaAsync(id, file, cancellationToken);
+        return StatusCode(result.StatusCode, result);
+    }
+
     [HttpDelete("{id:long}")]
     [HasPermission(PermissionCodes.PostsManage)]
     public async Task<IActionResult> Delete(
