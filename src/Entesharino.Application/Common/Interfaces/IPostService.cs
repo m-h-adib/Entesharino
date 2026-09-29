@@ -13,6 +13,10 @@ public interface IPostService
         long id,
         CancellationToken cancellationToken = default);
 
+    Task<ResultDto<PostMediaDeliveryReportDto>> GetMediaDeliveryReportAsync(
+        long id,
+        CancellationToken cancellationToken = default);
+
     Task<ResultDto<PostDetailsDto>> CreateAsync(
         CreatePostRequest request,
         CancellationToken cancellationToken = default);
