@@ -70,6 +70,25 @@ public sealed class UsersController : ControllerBase
         var result = await _userService.SetActiveAsync(id, request.IsActive, cancellationToken);
         return StatusCode(result.StatusCode, result);
     }
+ 
+    [HttpPatch("{id:long}/password")]
+    [HasPermission(PermissionCodes.UsersManage)]
+    public async Task<IActionResult> ResetPassword(
+        long id,
+        ResetUserPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _userService.ResetPasswordAsync(id, request.Password, cancellationToken);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HttpDelete("{id:long}")]
+    [HasPermission(PermissionCodes.UsersManage)]
+    public async Task<IActionResult> Delete(long id, CancellationToken cancellationToken)
+    {
+        var result = await _userService.DeleteAsync(id, cancellationToken);
+        return StatusCode(result.StatusCode, result);
+    }
 
     [HttpPut("{id:long}/role")]
     [HasPermission(PermissionCodes.UsersManage)]
