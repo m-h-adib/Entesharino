@@ -22,6 +22,11 @@ public interface IPostService
         UpdatePostRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<ResultDto<PostMediaDto>> UploadMediaAsync(
+        long postId,
+        IFormFile file,
+        CancellationToken cancellationToken = default);
+
     Task<ResultDto> DeleteAsync(
         long id,
         CancellationToken cancellationToken = default);
