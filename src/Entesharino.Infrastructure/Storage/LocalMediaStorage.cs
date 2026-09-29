@@ -1,4 +1,6 @@
 using Entesharino.Application.Common.Interfaces;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 
 namespace Entesharino.Infrastructure.Storage;
 

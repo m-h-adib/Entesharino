@@ -4,6 +4,7 @@ using Entesharino.Application.Common.Models;
 using Entesharino.Application.Features.Posts.Models;
 using Entesharino.Domain.Entities;
 using Entesharino.Domain.Enums;
+using Microsoft.AspNetCore.Http;
 
 namespace Entesharino.Application.Features.Posts;
 

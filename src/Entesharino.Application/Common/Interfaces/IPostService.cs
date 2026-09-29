@@ -1,5 +1,6 @@
 using Entesharino.Application.Common.Models;
 using Entesharino.Application.Features.Posts.Models;
+using Microsoft.AspNetCore.Http;
 
 namespace Entesharino.Application.Common.Interfaces;
 
