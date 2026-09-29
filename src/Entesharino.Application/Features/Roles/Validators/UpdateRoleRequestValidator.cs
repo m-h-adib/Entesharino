@@ -7,6 +7,8 @@ public sealed class UpdateRoleRequestValidator : AbstractValidator<UpdateRoleReq
 {
     public UpdateRoleRequestValidator()
     {
-        RuleFor(x => x.DisplayName).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.DisplayName)
+            .NotEmpty().WithMessage("عنوان نمایشی الزامی است.")
+            .MaximumLength(150).WithMessage("عنوان نمایشی نمی‌تواند بیشتر از 150 کاراکتر باشد.");
     }
 }
