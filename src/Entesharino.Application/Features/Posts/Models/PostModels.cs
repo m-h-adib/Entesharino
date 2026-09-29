@@ -34,6 +34,15 @@ public sealed class PostChannelDto
     public int RetryCount { get; init; }
 }
 
+public sealed class PostMediaDto
+{
+    public long Id { get; init; }
+    public MediaType MediaType { get; init; }
+    public string FileName { get; init; } = string.Empty;
+    public string FileUrl { get; init; } = string.Empty;
+    public long FileSize { get; init; }
+}
+
 public sealed class PostDetailsDto
 {
     public long Id { get; init; }
@@ -42,6 +51,7 @@ public sealed class PostDetailsDto
     public PostStatus Status { get; init; }
     public DateTime CreatedAt { get; init; }
     public IReadOnlyList<PostChannelDto> Channels { get; init; } = [];
+    public IReadOnlyList<PostMediaDto> Media { get; init; } = [];
     public PostScheduleDto? Schedule { get; init; }
 }
 
