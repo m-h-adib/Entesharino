@@ -32,14 +32,22 @@ public sealed class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(username) ||
             string.IsNullOrWhiteSpace(email) ||
             string.IsNullOrWhiteSpace(request.Password))
-            return ResultDto<AuthResponse>.Fail("اطلاعات ثبت‌نام کامل نیست.");
+        {
+            return ResultDto<AuthResponse>.Fail(
+                "اطلاعات ثبت‌نام کامل نیست.",
+                400);
+        }
 
         var exists = await _database.Users.AnyAsync(
             x => x.Username == username || x.Email == email,
             cancellationToken);
 
         if (exists)
-            return ResultDto<AuthResponse>.Fail("نام کاربری یا ایمیل قبلاً ثبت شده است.");
+        {
+            return ResultDto<AuthResponse>.Fail(
+                "نام کاربری یا ایمیل قبلاً ثبت شده است.",
+                409);
+        }
 
         var user = new User
         {
@@ -61,7 +69,8 @@ public sealed class AuthService : IAuthService
                 UserId = user.Id,
                 AccessToken = token
             },
-            "ثبت‌نام با موفقیت انجام شد.");
+            "ثبت‌نام با موفقیت انجام شد.",
+            201);
     }
 
     public async Task<ResultDto<AuthResponse>> LoginAsync(
@@ -76,10 +85,18 @@ public sealed class AuthService : IAuthService
             cancellationToken);
 
         if (user is null || user.IsRemoved || !user.IsActive)
-            return ResultDto<AuthResponse>.Fail("نام کاربری یا رمز عبور صحیح نیست.");
+        {
+            return ResultDto<AuthResponse>.Fail(
+                "نام کاربری یا رمز عبور صحیح نیست.",
+                401);
+        }
 
         if (!_passwordHasher.Verify(request.Password, user.PasswordHash))
-            return ResultDto<AuthResponse>.Fail("نام کاربری یا رمز عبور صحیح نیست.");
+        {
+            return ResultDto<AuthResponse>.Fail(
+                "نام کاربری یا رمز عبور صحیح نیست.",
+                401);
+        }
 
         user.LastLoginAt = DateTime.UtcNow;
         await _database.SaveChangesAsync(cancellationToken);
@@ -92,6 +109,7 @@ public sealed class AuthService : IAuthService
                 UserId = user.Id,
                 AccessToken = token
             },
-            "ورود با موفقیت انجام شد.");
+            "ورود با موفقیت انجام شد.",
+            200);
     }
 }
