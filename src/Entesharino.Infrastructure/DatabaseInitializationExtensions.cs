@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Entesharino.Domain.Constants;
 using Entesharino.Domain.Entities;
 using Entesharino.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Entesharino.Infrastructure;
 
