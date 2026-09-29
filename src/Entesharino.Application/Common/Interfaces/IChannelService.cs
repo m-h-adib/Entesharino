@@ -12,4 +12,5 @@ public interface IChannelService
     Task<ResultDto> UpdateConnectionAsync(long id, UpdateChannelConnectionRequest request, CancellationToken cancellationToken = default);
     Task<ResultDto> SetActiveAsync(long id, bool isActive, CancellationToken cancellationToken = default);
     Task<ResultDto> DeleteAsync(long id, CancellationToken cancellationToken = default);
+    Task<ResultDto> TestConnectionAsync(long id, CancellationToken cancellationToken = default);
 }
