@@ -6,6 +6,7 @@ using Entesharino.Application.Common.Interfaces;
 using Entesharino.Application.Features.Auth;
 using Entesharino.Application.Features.Channels;
 using Entesharino.Application.Features.Posts;
+using Entesharino.Application.Features.Reports;
 using Entesharino.Infrastructure.Messaging;
 using Entesharino.Application.Features.Roles;
 using Entesharino.Application.Features.Users;
@@ -42,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IChannelService, ChannelService>();
         services.AddScoped<IPostService, PostService>();
+        services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IPostDeliveryService, PostDeliveryService>();
         services.AddScoped<IPostDeliveryRetryScheduler, HangfireDeliveryRetryScheduler>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
