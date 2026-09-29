@@ -34,4 +34,8 @@ public interface IPostService
         long id,
         SchedulePostRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<ResultDto> ExecuteScheduledAsync(
+        long id,
+        CancellationToken cancellationToken = default);
 }
