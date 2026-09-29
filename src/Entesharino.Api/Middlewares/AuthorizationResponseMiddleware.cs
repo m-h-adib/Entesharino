@@ -22,7 +22,9 @@ public sealed class AuthorizationResponseMiddleware
 
         context.Response.ContentType = "application/json; charset=utf-8";
 
-        var result = ResultDto.Fail("شما مجوز دسترسی به این بخش را ندارید.");
+        var result = ResultDto.Fail(
+            "شما مجوز دسترسی به این بخش را ندارید.",
+            StatusCodes.Status403Forbidden);
 
         await context.Response.WriteAsync(
             JsonSerializer.Serialize(result));
