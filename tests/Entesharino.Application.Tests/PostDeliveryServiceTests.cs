@@ -33,7 +33,6 @@ public sealed class PostDeliveryServiceTests
             Id = 102,
             PostId = post.Id,
             ChannelId = bale.Id,
-            ChannelId = bale.Id,
             Post = post,
             Channel = bale,
             Status = DeliveryStatus.Pending
