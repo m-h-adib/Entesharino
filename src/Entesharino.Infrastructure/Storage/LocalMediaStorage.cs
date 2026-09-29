@@ -72,6 +72,57 @@ public sealed class LocalMediaStorage : IMediaStorage
             contentType);
     }
 
+    public Task<Stream> OpenReadAsync(
+        string fileUrl,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (string.IsNullOrWhiteSpace(fileUrl))
+            throw new ArgumentException("آدرس فایل الزامی است.", nameof(fileUrl));
+
+        var publicRoot = _configuration["Storage:MediaPublicPath"]?.Trim('/');
+        if (string.IsNullOrWhiteSpace(publicRoot))
+            publicRoot = "uploads/media";
+
+        var prefix = "/" + publicRoot + "/";
+        if (!fileUrl.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("آدرس فایل رسانه معتبر نیست.");
+
+        var relativePath = fileUrl[prefix.Length..]
+            .Replace('/', Path.DirectorySeparatorChar);
+
+        var root = _configuration["Storage:MediaRoot"];
+
+        var physicalRoot = string.IsNullOrWhiteSpace(root)
+            ? Path.Combine(_environment.WebRootPath ?? _environment.ContentRootPath, "uploads", "media")
+            : Path.IsPathRooted(root)
+                ? root
+                : Path.Combine(_environment.ContentRootPath, root);
+
+        var fullPath = Path.GetFullPath(Path.Combine(physicalRoot, relativePath));
+
+        var normalizedRoot = Path.GetFullPath(physicalRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        if (!fullPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("مسیر فایل رسانه معتبر نیست.");
+
+        if (!File.Exists(fullPath))
+            throw new FileNotFoundException("فایل رسانه پیدا نشد.", fullPath);
+
+        Stream stream = new FileStream(
+            fullPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 64 * 1024,
+            useAsync: true);
+
+        return Task.FromResult(stream);
+    }
+
     public Task DeleteAsync(
         string fileUrl,
         CancellationToken cancellationToken = default)
