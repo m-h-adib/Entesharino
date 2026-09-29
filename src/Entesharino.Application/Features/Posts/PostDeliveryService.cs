@@ -332,7 +332,11 @@ public sealed class PostDeliveryService : IPostDeliveryService
     {
         var channels = await _database.PostChannels
             .Where(x => x.PostId == post.Id && !x.IsRemoved)
-            .Select(x => x.Status)
+            .Select(x => new
+            {
+                x.Status,
+                x.RetryCount
+            })
             .ToListAsync(cancellationToken);
 
         if (channels.Count == 0)
@@ -342,12 +346,13 @@ public sealed class PostDeliveryService : IPostDeliveryService
             return;
         }
 
-        var sent = channels.Count(x => x == DeliveryStatus.Sent);
-        var failed = channels.Count(x => x == DeliveryStatus.Failed);
-        var processing = channels.Count(x => x == DeliveryStatus.Processing);
-        var pending = channels.Count(x => x == DeliveryStatus.Pending);
-        var retryableFailures = channels.Count(x =>
-            x == DeliveryStatus.Failed);
+        var sent = channels.Count(x => x.Status == DeliveryStatus.Sent);
+        var failed = channels.Count(x => x.Status == DeliveryStatus.Failed);
+        var processing = channels.Count(x => x.Status == DeliveryStatus.Processing);
+        var pending = channels.Count(x => x.Status == DeliveryStatus.Pending);
+        var hasRetryableFailure = channels.Any(x =>
+            x.Status == DeliveryStatus.Failed &&
+            x.RetryCount < MaxRetries);
 
         var isRecurring = post.Schedule is not null &&
             post.Schedule.ScheduleType is
