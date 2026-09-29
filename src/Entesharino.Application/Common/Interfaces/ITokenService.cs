@@ -4,5 +4,7 @@ namespace Entesharino.Application.Common.Interfaces;
 
 public interface ITokenService
 {
-    string CreateAccessToken(User user);
+    Task<string> CreateAccessTokenAsync(
+        User user,
+        CancellationToken cancellationToken = default);
 }
