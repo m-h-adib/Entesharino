@@ -71,14 +71,12 @@ public sealed class BaleMessageSender : IMessageSender
             cancellationToken);
     }
 
-    private Uri BuildUrl(string endpoint)
+    private string BuildUrl(string endpoint)
     {
         if (_httpClient.BaseAddress is null)
             throw new InvalidOperationException("BaseAddress برای Bale HttpClient تنظیم نشده است.");
 
-        return new Uri(
-            _httpClient.BaseAddress.AbsoluteUri.TrimEnd('/') + "/" + endpoint,
-            UriKind.Absolute);
+        return _httpClient.BaseAddress.AbsoluteUri.TrimEnd('/') + "/" + endpoint;
     }
 
     private static async Task<SenderResult> ParseResultAsync(
