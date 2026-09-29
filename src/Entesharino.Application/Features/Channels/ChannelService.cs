@@ -22,6 +22,7 @@ public sealed class ChannelService : IChannelService
         _database = database;
         _currentUser = currentUser;
         _secretProtector = secretProtector;
+        _senderFactory = senderFactory;
     }
 
     public async Task<ResultOfList<ChannelListItemDto>> GetListAsync(
