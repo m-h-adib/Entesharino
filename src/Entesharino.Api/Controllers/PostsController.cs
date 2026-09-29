@@ -39,6 +39,19 @@ public sealed class PostsController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    [HttpGet("{id:long}/media-delivery-report")]
+    [HasPermission(PermissionCodes.PostsView)]
+    public async Task<IActionResult> GetMediaDeliveryReport(
+        long id,
+        CancellationToken cancellationToken)
+    {
+        var result = await _postService.GetMediaDeliveryReportAsync(
+            id,
+            cancellationToken);
+
+        return StatusCode(result.StatusCode, result);
+    }
+
     [HttpPost]
     [HasPermission(PermissionCodes.PostsCreate)]
     public async Task<IActionResult> Create(
