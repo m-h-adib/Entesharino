@@ -618,6 +618,7 @@ public sealed class PostService : IPostService
                 var result = await SendPostAsync(
                     sender,
                     credentials,
+                    target,
                     post,
                     cancellationToken);
 
@@ -691,6 +692,7 @@ public sealed class PostService : IPostService
     private async Task<SenderResult> SendPostAsync(
         IMessageSender sender,
         ChannelCredentials credentials,
+        PostChannel target,
         Post post,
         CancellationToken cancellationToken)
     {
@@ -707,29 +709,78 @@ public sealed class PostService : IPostService
                 cancellationToken);
         }
 
-        SenderResult? lastResult = null;
+        var deliveries = await _database.PostMediaDeliveries
+            .Where(x => x.PostChannelId == target.Id)
+            .ToListAsync(cancellationToken);
 
-        for (var index = 0; index < media.Count; index++)
+        foreach (var item in media)
         {
+            if (deliveries.All(x => x.PostMediaId != item.Id))
+            {
+                var delivery = new PostMediaDelivery
+                {
+                    PostChannelId = target.Id,
+                    PostMediaId = item.Id,
+                    Status = DeliveryStatus.Pending
+                };
+
+                _database.PostMediaDeliveries.Add(delivery);
+                deliveries.Add(delivery);
+            }
+        }
+
+        await _database.SaveChangesAsync(cancellationToken);
+
+        SenderResult? lastResult = null;
+        var captionUsed = deliveries.Any(x =>
+            x.Status == DeliveryStatus.Sent &&
+            media.Any(m => m.Id == x.PostMediaId));
+
+        foreach (var item in media)
+        {
+            var delivery = deliveries.Single(x => x.PostMediaId == item.Id);
+
+            if (delivery.Status == DeliveryStatus.Sent)
+                continue;
+
+            delivery.Status = DeliveryStatus.Processing;
+            delivery.ErrorMessage = null;
+            delivery.RetryCount++;
+
             await using var stream = await _mediaStorage.OpenReadAsync(
-                media[index].FileUrl,
+                item.FileUrl,
                 cancellationToken);
 
             lastResult = await sender.SendMediaAsync(
                 credentials,
                 new MediaMessage(
-                    media[index].MediaType,
+                    item.MediaType,
                     stream,
-                    media[index].FileName,
-                    ResolveMediaContentType(media[index].MediaType, media[index].FileName),
-                    index == 0 ? post.Content : null),
+                    item.FileName,
+                    ResolveMediaContentType(item.MediaType, item.FileName),
+                    captionUsed ? null : post.Content),
                 cancellationToken);
 
             if (!lastResult.Success)
+            {
+                delivery.Status = DeliveryStatus.Failed;
+                delivery.ErrorMessage = lastResult.ErrorMessage;
+                await _database.SaveChangesAsync(cancellationToken);
                 return lastResult;
+            }
+
+            delivery.Status = DeliveryStatus.Sent;
+            delivery.SentAt = DateTime.UtcNow;
+            delivery.ExternalMessageId = lastResult.ExternalMessageId;
+            delivery.ErrorMessage = null;
+            captionUsed = true;
+
+            await _database.SaveChangesAsync(cancellationToken);
         }
 
-        return lastResult!;
+        return lastResult ?? new SenderResult(
+            true,
+            ErrorMessage: null);
     }
 
     private static string ResolveMediaContentType(
