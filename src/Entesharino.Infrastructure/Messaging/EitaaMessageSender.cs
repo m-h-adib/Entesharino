@@ -56,22 +56,12 @@ public sealed class EitaaMessageSender : IMessageSender
         MediaMessage media,
         CancellationToken cancellationToken = default)
     {
-        var (method, fieldName) = media.MediaType switch
-        {
-            MediaType.Image => ("sendPhoto", "photo"),
-            MediaType.Video => ("sendVideo", "video"),
-            MediaType.Audio => ("sendAudio", "audio"),
-            MediaType.Document => ("sendDocument", "document"),
-            _ => throw new InvalidOperationException(
-                $"نوع رسانه '${media.MediaType}' پشتیبانی نمی‌شود.")
-        };
-
         return BotApiMediaSenderHelper.SendAsync(
             _httpClient,
-            $"{Uri.EscapeDataString(credentials.AccessToken)}/{method}",
+            $"{Uri.EscapeDataString(credentials.AccessToken)}/sendFile",
             credentials.Identifier,
             media,
-            fieldName,
+            "file",
             cancellationToken);
     }
 
