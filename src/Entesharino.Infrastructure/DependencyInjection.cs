@@ -31,15 +31,24 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<ISecretProtector, DataProtectionSecretProtector>();
         services.AddScoped<IMessageSenderFactory, MessageSenderFactory>();
+
         services.AddHttpClient<TelegramMessageSender>(client =>
         {
             client.BaseAddress = new Uri("https://api.telegram.org/");
             client.Timeout = TimeSpan.FromSeconds(30);
         });
+
+        services.AddHttpClient<BaleMessageSender>(client =>
+        {
+            client.BaseAddress = new Uri("https://tapi.bale.ai/");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
         services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<TelegramMessageSender>());
+        services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<BaleMessageSender>());
         services.AddScoped<IMessageSender, EitaaMessageSender>();
-        services.AddScoped<IMessageSender, BaleMessageSender>();
         services.AddScoped<IMessageSender, RubikaMessageSender>();
+
         services.AddDataProtection();
         services.AddHttpContextAccessor();
         services.AddScoped<IRoleService, RoleService>();
