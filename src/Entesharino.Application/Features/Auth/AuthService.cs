@@ -63,7 +63,7 @@ public sealed class AuthService : IAuthService
 
     public async Task<ResultDto<AuthResponse>> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
-        var value = request.UsernameOrEmail.Trim();
+        var value = request.Username.Trim();
         var email = value.ToLowerInvariant();
 
         var user = await _database.Users.FirstOrDefaultAsync(

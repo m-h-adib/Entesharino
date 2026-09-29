@@ -7,7 +7,7 @@ public sealed class LoginRequestValidator : AbstractValidator<LoginRequest>
 {
     public LoginRequestValidator()
     {
-        RuleFor(x => x.UsernameOrEmail)
+        RuleFor(x => x.Username)
             .NotEmpty().WithMessage("نام کاربری یا ایمیل الزامی است.")
             .MaximumLength(200).WithMessage("نام کاربری یا ایمیل نمی‌تواند بیشتر از ۲۰۰ کاراکتر باشد.");
 
