@@ -4,6 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Entesharino.Application.Common.Interfaces;
 using Entesharino.Application.Features.Auth;
 using Entesharino.Application.Features.Channels;
+using Entesharino.Application.Common.Interfaces;
+using Entesharino.Infrastructure.Messaging;
 using Entesharino.Application.Features.Roles;
 using Entesharino.Application.Features.Users;
 using Entesharino.Infrastructure.Persistence;
@@ -29,6 +31,16 @@ public static class DependencyInjection
         services.AddScoped<IChannelService, ChannelService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<ISecretProtector, DataProtectionSecretProtector>();
+        services.AddScoped<IMessageSenderFactory, MessageSenderFactory>();
+        services.AddHttpClient<TelegramMessageSender>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.telegram.org/");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<TelegramMessageSender>());
+        services.AddScoped<IMessageSender, EitaaMessageSender>();
+        services.AddScoped<IMessageSender, BaleMessageSender>();
+        services.AddScoped<IMessageSender, RubikaMessageSender>();
         services.AddDataProtection();
         services.AddHttpContextAccessor();
         services.AddScoped<IRoleService, RoleService>();
