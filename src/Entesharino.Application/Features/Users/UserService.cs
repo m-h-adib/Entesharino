@@ -180,7 +180,6 @@ public sealed class UserService : IUserService
         await _database.SaveChangesAsync(cancellationToken);
         return ResultDto.Ok("نقش کاربر با موفقیت تغییر کرد.");
     }
-}
 
 
     public async Task<ResultDto> ResetPasswordAsync(long id, string password, CancellationToken cancellationToken = default)
