@@ -37,6 +37,8 @@ public sealed class PostDeliveryService : IPostDeliveryService
         var target = await _database.PostChannels
             .Include(x => x.Post)
                 .ThenInclude(x => x.Media)
+            .Include(x => x.Post)
+                .ThenInclude(x => x.Schedule)
             .Include(x => x.Channel)
                 .ThenInclude(x => x.Connection)
             .SingleOrDefaultAsync(
@@ -48,6 +50,9 @@ public sealed class PostDeliveryService : IPostDeliveryService
 
         if (target.Status == DeliveryStatus.Sent)
             return ResultDto.Ok("پیام قبلاً ارسال شده است.");
+
+        if (target.Status == DeliveryStatus.Processing)
+            return ResultDto.Ok("ارسال این کانال در حال انجام است.");
 
         if (target.Post.IsRemoved || target.Post.Status == PostStatus.Cancelled)
             return ResultDto.Ok("پست دیگر قابل ارسال نیست.");
@@ -116,7 +121,10 @@ public sealed class PostDeliveryService : IPostDeliveryService
                 attempt.IsSuccess = true;
                 attempt.CompletedAt = DateTime.UtcNow;
 
-                await _database.SaveChangesAsync(cancellationToken);
+                await RecalculatePostStatusAsync(
+                    target.Post,
+                    cancellationToken);
+
                 return ResultDto.Ok("پیام با موفقیت ارسال شد.");
             }
 
@@ -283,7 +291,9 @@ public sealed class PostDeliveryService : IPostDeliveryService
         attempt.ErrorMessage = error;
         attempt.CompletedAt = DateTime.UtcNow;
 
-        await _database.SaveChangesAsync(cancellationToken);
+        await RecalculatePostStatusAsync(
+            target.Post,
+            cancellationToken);
 
         if (target.RetryCount < MaxRetries)
         {
@@ -300,6 +310,50 @@ public sealed class PostDeliveryService : IPostDeliveryService
         return ResultDto.Fail(
             "ارسال ناموفق بود و حداکثر تعداد تلاش انجام شد.",
             400);
+    }
+
+    private async Task RecalculatePostStatusAsync(
+        Post post,
+        CancellationToken cancellationToken)
+    {
+        var channels = await _database.PostChannels
+            .Where(x => x.PostId == post.Id && !x.IsRemoved)
+            .Select(x => x.Status)
+            .ToListAsync(cancellationToken);
+
+        if (channels.Count == 0)
+        {
+            post.Status = PostStatus.Failed;
+            await _database.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        var sent = channels.Count(x => x == DeliveryStatus.Sent);
+        var failed = channels.Count(x => x == DeliveryStatus.Failed);
+        var processing = channels.Count(x => x == DeliveryStatus.Processing);
+        var pending = channels.Count(x => x == DeliveryStatus.Pending);
+
+        var isRecurring = post.Schedule is not null &&
+            post.Schedule.ScheduleType is
+                ScheduleType.Daily or
+                ScheduleType.Weekly or
+                ScheduleType.Monthly or
+                ScheduleType.Cron &&
+            !post.Schedule.IsCompleted;
+
+        post.Status = isRecurring
+            ? PostStatus.Scheduled
+            : sent == channels.Count
+                ? PostStatus.Completed
+                : sent > 0
+                    ? PostStatus.PartiallyCompleted
+                    : failed == channels.Count
+                        ? PostStatus.Failed
+                        : processing > 0 || pending > 0
+                            ? PostStatus.Processing
+                            : PostStatus.Failed;
+
+        await _database.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<ResultDto> FailPermanentlyAsync(
