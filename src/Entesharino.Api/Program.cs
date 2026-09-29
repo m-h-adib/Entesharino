@@ -26,11 +26,11 @@ builder.Services.AddSwaggerGen(options =>
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = SecuritySchemeType.Http,
+        Type = SecuritySchemeType.ApiKey,
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "فقط خود JWT را وارد کنید، بدون کلمه Bearer. مثال: eyJhbGciOiJIUzI1NiIs..."
+        Description = "توکن را با کلمه Bearer وارد کنید. مثال: Bearer eyJhbGciOiJIUzI1NiIs..."
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
