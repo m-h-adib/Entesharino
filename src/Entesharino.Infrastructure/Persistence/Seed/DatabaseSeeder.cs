@@ -48,6 +48,8 @@ public static class DatabaseSeeder
         {
             new Permission { Code = PermissionCodes.UsersView, Title = "مشاهده کاربران" },
             new Permission { Code = PermissionCodes.UsersManage, Title = "مدیریت کاربران" },
+            new Permission { Code = PermissionCodes.RolesView, Title = "مشاهده نقش‌ها" },
+            new Permission { Code = PermissionCodes.RolesManage, Title = "مدیریت نقش‌ها" },
             new Permission { Code = PermissionCodes.ChannelsView, Title = "مشاهده کانال‌ها" },
             new Permission { Code = PermissionCodes.ChannelsManage, Title = "مدیریت کانال‌ها" },
             new Permission { Code = PermissionCodes.PostsView, Title = "مشاهده پست‌ها" },
