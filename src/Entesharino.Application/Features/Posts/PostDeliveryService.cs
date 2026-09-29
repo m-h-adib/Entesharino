@@ -364,7 +364,9 @@ public sealed class PostDeliveryService : IPostDeliveryService
         target.Status = DeliveryStatus.Failed;
         target.ErrorMessage = error;
 
-        await _database.SaveChangesAsync(cancellationToken);
+        await RecalculatePostStatusAsync(
+            target.Post,
+            cancellationToken);
 
         return ResultDto.Fail(error, 400);
     }
