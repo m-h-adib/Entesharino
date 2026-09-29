@@ -2,7 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Entesharino.Application.Common.Interfaces;
+using Entesharino.Application.Features.Auth;
 using Entesharino.Infrastructure.Persistence;
+using Entesharino.Infrastructure.Security;
 
 namespace Entesharino.Infrastructure;
 
@@ -19,6 +21,9 @@ public static class DependencyInjection
             options.UseSqlServer(connectionString));
 
         services.AddScoped<IDatabaseContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<ITokenService, JwtTokenService>();
 
         return services;
     }
