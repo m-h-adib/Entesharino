@@ -46,6 +46,31 @@ public sealed class TelegramMessageSender : IMessageSender
         return await ParseResultAsync(response, cancellationToken);
     }
 
+
+    public Task<SenderResult> SendMediaAsync(
+        ChannelCredentials credentials,
+        MediaMessage media,
+        CancellationToken cancellationToken = default)
+    {
+        var (method, fieldName) = media.MediaType switch
+        {
+            MediaType.Image => ("sendPhoto", "photo"),
+            MediaType.Video => ("sendVideo", "video"),
+            MediaType.Audio => ("sendAudio", "audio"),
+            MediaType.Document => ("sendDocument", "document"),
+            _ => throw new InvalidOperationException(
+                $"نوع رسانه '${media.MediaType}' پشتیبانی نمی‌شود.")
+        };
+
+        return BotApiMediaSenderHelper.SendAsync(
+            _httpClient,
+            $"bot{Uri.EscapeDataString(credentials.AccessToken)}/{method}",
+            credentials.Identifier,
+            media,
+            fieldName,
+            cancellationToken);
+    }
+
     private static async Task<SenderResult> ParseResultAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
