@@ -14,9 +14,7 @@ public sealed class RoleService : IRoleService
 
     public async Task<ResultOfList<RoleListItemDto>> GetListAsync(CancellationToken cancellationToken = default)
     {
-        var roles = await _database.Roles.AsNoTracking()
-            .Where(x => !x.IsRemoved)
-            .OrderBy(x => x.Name)
+        var roles = await _database.Roles.AsNoTracking().Where(x => !x.IsRemoved).OrderBy(x => x.Name)
             .Select(x => new RoleListItemDto
             {
                 Id = x.Id, Name = x.Name, DisplayName = x.DisplayName,
@@ -27,18 +25,13 @@ public sealed class RoleService : IRoleService
 
     public async Task<ResultDto<RoleDetailsDto>> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
-        var role = await _database.Roles.AsNoTracking()
-            .Where(x => x.Id == id && !x.IsRemoved)
+        var role = await _database.Roles.AsNoTracking().Where(x => x.Id == id && !x.IsRemoved)
             .Select(x => new RoleDetailsDto
             {
                 Id = x.Id, Name = x.Name, DisplayName = x.DisplayName, IsActive = x.IsActive,
-                Permissions = x.RolePermissions
-                    .Where(rp => rp.Permission.IsActive && !rp.Permission.IsRemoved)
+                Permissions = x.RolePermissions.Where(rp => rp.Permission.IsActive && !rp.Permission.IsRemoved)
                     .OrderBy(rp => rp.Permission.Code)
-                    .Select(rp => new PermissionDto
-                    {
-                        Id = rp.Permission.Id, Code = rp.Permission.Code, Title = rp.Permission.Title
-                    }).ToList()
+                    .Select(rp => new PermissionDto { Id = rp.Permission.Id, Code = rp.Permission.Code, Title = rp.Permission.Title }).ToList()
             }).SingleOrDefaultAsync(cancellationToken);
 
         return role is null
@@ -48,8 +41,7 @@ public sealed class RoleService : IRoleService
 
     public async Task<ResultOfList<PermissionDto>> GetPermissionsAsync(CancellationToken cancellationToken = default)
     {
-        var permissions = await _database.Permissions.AsNoTracking()
-            .Where(x => x.IsActive && !x.IsRemoved)
+        var permissions = await _database.Permissions.AsNoTracking().Where(x => x.IsActive && !x.IsRemoved)
             .OrderBy(x => x.Code)
             .Select(x => new PermissionDto { Id = x.Id, Code = x.Code, Title = x.Title })
             .ToListAsync(cancellationToken);
@@ -60,11 +52,6 @@ public sealed class RoleService : IRoleService
     {
         var name = request.Name.Trim();
         var displayName = request.DisplayName.Trim();
-
-        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(displayName))
-            return ResultDto<RoleDetailsDto>.Fail("نام نقش و عنوان نمایشی الزامی است.");
-        if (name.Length > 100 || displayName.Length > 150)
-            return ResultDto<RoleDetailsDto>.Fail("طول نام یا عنوان نقش بیش از حد مجاز است.");
 
         if (await _database.Roles.AnyAsync(x => x.Name == name && !x.IsRemoved, cancellationToken))
             return ResultDto<RoleDetailsDto>.Fail("نقشی با این نام از قبل وجود دارد.", 409);
@@ -77,17 +64,11 @@ public sealed class RoleService : IRoleService
 
     public async Task<ResultDto<RoleDetailsDto>> UpdateAsync(long id, UpdateRoleRequest request, CancellationToken cancellationToken = default)
     {
-        var displayName = request.DisplayName.Trim();
-        if (string.IsNullOrWhiteSpace(displayName))
-            return ResultDto<RoleDetailsDto>.Fail("عنوان نمایشی الزامی است.");
-        if (displayName.Length > 150)
-            return ResultDto<RoleDetailsDto>.Fail("عنوان نمایشی نمی‌تواند بیشتر از 150 کاراکتر باشد.");
-
         var role = await _database.Roles.SingleOrDefaultAsync(x => x.Id == id && !x.IsRemoved, cancellationToken);
         if (role is null)
             return ResultDto<RoleDetailsDto>.Fail("نقش موردنظر پیدا نشد.", 404);
 
-        role.DisplayName = displayName;
+        role.DisplayName = request.DisplayName.Trim();
         await _database.SaveChangesAsync(cancellationToken);
         return await GetByIdAsync(id, cancellationToken);
     }
