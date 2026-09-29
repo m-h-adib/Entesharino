@@ -14,7 +14,19 @@ public interface IMessageSender
         ChannelCredentials credentials,
         string text,
         CancellationToken cancellationToken = default);
+
+    Task<SenderResult> SendMediaAsync(
+        ChannelCredentials credentials,
+        MediaMessage media,
+        CancellationToken cancellationToken = default);
 }
+
+public sealed record MediaMessage(
+    MediaType MediaType,
+    Stream Content,
+    string FileName,
+    string ContentType,
+    string? Caption = null);
 
 public sealed record ChannelCredentials(
     string AccessToken,
