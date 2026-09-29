@@ -14,6 +14,7 @@ public interface IDatabaseContext
     DbSet<ChannelConnection> ChannelConnections { get; }
     DbSet<Post> Posts { get; }
     DbSet<PostMedia> PostMedia { get; }
+    DbSet<PostMediaDelivery> PostMediaDeliveries { get; }
     DbSet<PostChannel> PostChannels { get; }
     DbSet<DeliveryAttempt> DeliveryAttempts { get; }
     DbSet<PostSchedule> PostSchedules { get; }
