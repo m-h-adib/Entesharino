@@ -5,6 +5,9 @@ public static class PermissionCodes
     public const string UsersView = "Users.View";
     public const string UsersManage = "Users.Manage";
 
+    public const string RolesView = "Roles.View";
+    public const string RolesManage = "Roles.Manage";
+
     public const string ChannelsView = "Channels.View";
     public const string ChannelsManage = "Channels.Manage";
 
