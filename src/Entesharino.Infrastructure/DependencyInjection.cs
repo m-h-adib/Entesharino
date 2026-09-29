@@ -41,6 +41,8 @@ public static class DependencyInjection
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IChannelService, ChannelService>();
         services.AddScoped<IPostService, PostService>();
+        services.AddScoped<IPostDeliveryService, PostDeliveryService>();
+        services.AddScoped<IPostDeliveryRetryScheduler, HangfireDeliveryRetryScheduler>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<ISecretProtector, DataProtectionSecretProtector>();
         services.AddScoped<IMessageSenderFactory, MessageSenderFactory>();
