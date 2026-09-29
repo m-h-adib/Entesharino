@@ -55,6 +55,25 @@ public sealed class RolesController : ControllerBase
         var result = await _roleService.UpdateAsync(id, request, cancellationToken);
         return StatusCode(result.StatusCode, result);
     }
+ 
+    [HttpPatch("{id:long}/active")]
+    [HasPermission(PermissionCodes.RolesManage)]
+    public async Task<IActionResult> SetActive(
+        long id,
+        SetRoleActiveRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _roleService.SetActiveAsync(id, request.IsActive, cancellationToken);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HttpDelete("{id:long}")]
+    [HasPermission(PermissionCodes.RolesManage)]
+    public async Task<IActionResult> Delete(long id, CancellationToken cancellationToken)
+    {
+        var result = await _roleService.DeleteAsync(id, cancellationToken);
+        return StatusCode(result.StatusCode, result);
+    }
 
     [HttpPut("{id:long}/permissions")]
     [HasPermission(PermissionCodes.RolesManage)]
