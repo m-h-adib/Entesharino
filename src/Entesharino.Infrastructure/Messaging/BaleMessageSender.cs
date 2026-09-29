@@ -21,7 +21,7 @@ public sealed class BaleMessageSender : IMessageSender
         CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.GetAsync(
-            $"bot{Uri.EscapeDataString(credentials.AccessToken)}/getMe",
+            $"bot{credentials.AccessToken}/getMe",
             cancellationToken);
 
         return await ParseResultAsync(response, cancellationToken);
@@ -39,7 +39,7 @@ public sealed class BaleMessageSender : IMessageSender
         };
 
         var response = await _httpClient.PostAsJsonAsync(
-            $"bot{Uri.EscapeDataString(credentials.AccessToken)}/sendMessage",
+            $"bot{credentials.AccessToken}/sendMessage",
             payload,
             cancellationToken);
 
@@ -64,7 +64,7 @@ public sealed class BaleMessageSender : IMessageSender
 
         return BotApiMediaSenderHelper.SendAsync(
             _httpClient,
-            $"bot{Uri.EscapeDataString(credentials.AccessToken)}/{method}",
+            $"bot{credentials.AccessToken}/{method}",
             credentials.Identifier,
             media,
             fieldName,
