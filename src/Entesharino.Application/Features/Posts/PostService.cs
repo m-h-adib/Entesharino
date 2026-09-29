@@ -15,6 +15,7 @@ public sealed class PostService : IPostService
     private readonly IMessageSenderFactory _senderFactory;
     private readonly IPostScheduler _postScheduler;
     private readonly IPostDeliveryRetryScheduler _retryScheduler;
+    private readonly IMediaStorage _mediaStorage;
 
     public PostService(
         IDatabaseContext database,
@@ -22,7 +23,8 @@ public sealed class PostService : IPostService
         ISecretProtector secretProtector,
         IMessageSenderFactory senderFactory,
         IPostScheduler postScheduler,
-        IPostDeliveryRetryScheduler retryScheduler)
+        IPostDeliveryRetryScheduler retryScheduler,
+        IMediaStorage mediaStorage)
     {
         _database = database;
         _currentUser = currentUser;
@@ -30,6 +32,7 @@ public sealed class PostService : IPostService
         _senderFactory = senderFactory;
         _postScheduler = postScheduler;
         _retryScheduler = retryScheduler;
+        _mediaStorage = mediaStorage;
     }
 
     public async Task<ResultOfList<PostListItemDto>> GetListAsync(
@@ -109,6 +112,18 @@ public sealed class PostService : IPostService
                         ExternalMessageId = c.ExternalMessageId,
                         ErrorMessage = c.ErrorMessage,
                         RetryCount = c.RetryCount
+                    })
+                    .ToList(),
+                Media = x.Media
+                    .Where(m => !m.IsRemoved)
+                    .OrderBy(m => m.Id)
+                    .Select(m => new PostMediaDto
+                    {
+                        Id = m.Id,
+                        MediaType = m.MediaType,
+                        FileName = m.FileName,
+                        FileUrl = m.FileUrl,
+                        FileSize = m.FileSize
                     })
                     .ToList(),
                 Schedule = x.Schedule == null
@@ -255,6 +270,97 @@ public sealed class PostService : IPostService
         await _database.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(id, cancellationToken);
+    }
+
+    public async Task<ResultDto<PostMediaDto>> UploadMediaAsync(
+        long postId,
+        IFormFile file,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = _currentUser.UserId;
+        if (!userId.HasValue)
+            return ResultDto<PostMediaDto>.Fail("کاربر جاری شناسایی نشد.", 401);
+
+        if (file is null || file.Length == 0)
+            return ResultDto<PostMediaDto>.Fail("فایل ارسال نشده است.", 400);
+
+        const long maxBytes = 50L * 1024 * 1024;
+        if (file.Length > maxBytes)
+            return ResultDto<PostMediaDto>.Fail("حداکثر حجم فایل 50 مگابایت است.", 400);
+
+        var mediaType = ResolveMediaType(file.ContentType);
+        if (!mediaType.HasValue)
+            return ResultDto<PostMediaDto>.Fail(
+                "نوع فایل پشتیبانی نمی‌شود. فقط تصویر، ویدئو، صدا و فایل مجاز است.", 400);
+
+        var post = await _database.Posts
+            .SingleOrDefaultAsync(
+                x => x.Id == postId &&
+                     x.UserId == userId.Value &&
+                     !x.IsRemoved,
+                cancellationToken);
+
+        if (post is null)
+            return ResultDto<PostMediaDto>.Fail("پست موردنظر پیدا نشد.", 404);
+
+        if (post.Status is PostStatus.Processing or PostStatus.Completed)
+            return ResultDto<PostMediaDto>.Fail(
+                "پست در این وضعیت قابل ویرایش نیست.", 409);
+
+        await using var stream = file.OpenReadStream();
+
+        var stored = await _mediaStorage.SaveAsync(
+            stream,
+            Path.GetFileName(file.FileName),
+            file.ContentType,
+            cancellationToken);
+
+        var media = new PostMedia
+        {
+            PostId = post.Id,
+            MediaType = mediaType.Value,
+            FileName = stored.FileName,
+            FileUrl = stored.FileUrl,
+            FileSize = stored.FileSize
+        };
+
+        _database.PostMedia.Add(media);
+        await _database.SaveChangesAsync(cancellationToken);
+
+        return ResultDto<PostMediaDto>.Ok(new PostMediaDto
+        {
+            Id = media.Id,
+            MediaType = media.MediaType,
+            FileName = media.FileName,
+            FileUrl = media.FileUrl,
+            FileSize = media.FileSize
+        });
+    }
+
+    private static MediaType? ResolveMediaType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+            return null;
+
+        if (contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            return MediaType.Image;
+
+        if (contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+            return MediaType.Video;
+
+        if (contentType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase))
+            return MediaType.Audio;
+
+        if (contentType is "application/pdf" ||
+            contentType is "application/msword" ||
+            contentType is "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+            contentType is "application/vnd.ms-excel" ||
+            contentType is "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+            contentType is "application/zip" ||
+            contentType is "application/octet-stream")
+            return MediaType.Document;
+
+        return null;
     }
 
     public async Task<ResultDto> DeleteAsync(
