@@ -19,7 +19,7 @@ public class PostMediaDeliveryConfiguration : IEntityTypeConfiguration<PostMedia
         builder.HasOne(x => x.PostChannel)
             .WithMany()
             .HasForeignKey(x => x.PostChannelId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.PostMedia)
             .WithMany()
