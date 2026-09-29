@@ -298,19 +298,96 @@ public sealed class PostService : IPostService
         long id,
         CancellationToken cancellationToken = default)
     {
-        var post = await _database.Posts
-            .AsNoTracking()
+        var schedule = await _database.Posts
             .Where(x => x.Id == id && !x.IsRemoved)
-            .Select(x => new { x.Id, x.UserId, x.Status })
+            .Select(x => new
+            {
+                x.Id,
+                x.UserId,
+                x.Status,
+                Schedule = x.Schedule == null
+                    ? null
+                    : new
+                    {
+                        x.Schedule.ScheduleType,
+                        x.Schedule.NextRunAt,
+                        x.Schedule.IsCompleted
+                    }
+            })
             .SingleOrDefaultAsync(cancellationToken);
 
-        if (post is null)
+        if (schedule is null)
             return ResultDto.Fail("پست زمان‌بندی‌شده پیدا نشد.", 404);
 
-        if (post.Status != PostStatus.Scheduled)
+        if (schedule.Status != PostStatus.Scheduled || schedule.Schedule is null)
             return ResultDto.Ok("پست در وضعیت قابل اجرای زمان‌بندی نیست.");
 
-        return await PublishInternalAsync(post.Id, post.UserId, cancellationToken);
+        var isRecurring =
+            schedule.Schedule.ScheduleType is
+                ScheduleType.Daily or
+                ScheduleType.Weekly or
+                ScheduleType.Monthly or
+                ScheduleType.Cron;
+
+        if (!isRecurring &&
+            schedule.Schedule.NextRunAt.HasValue &&
+            schedule.Schedule.NextRunAt.Value > DateTime.UtcNow)
+        {
+            return ResultDto.Ok("زمان اجرای پست هنوز نرسیده است.");
+        }
+
+        if (isRecurring)
+        {
+            var channels = await _database.PostChannels
+                .Where(x => x.PostId == id && !x.IsRemoved)
+                .ToListAsync(cancellationToken);
+
+            foreach (var channel in channels)
+            {
+                channel.Status = DeliveryStatus.Pending;
+                channel.SentAt = null;
+                channel.ExternalMessageId = null;
+                channel.ErrorMessage = null;
+                channel.RetryCount = 0;
+            }
+
+            await _database.SaveChangesAsync(cancellationToken);
+        }
+
+        var result = await PublishInternalAsync(
+            schedule.Id,
+            schedule.UserId,
+            cancellationToken);
+
+        var postSchedule = await _database.PostSchedules
+            .SingleOrDefaultAsync(
+                x => x.PostId == id && !x.IsRemoved,
+                cancellationToken);
+
+        if (postSchedule is null)
+            return result;
+
+        postSchedule.LastRunAt = DateTime.UtcNow;
+
+        if (isRecurring)
+        {
+            postSchedule.IsCompleted = false;
+            postSchedule.NextRunAt = null;
+
+            var post = await _database.Posts
+                .SingleAsync(x => x.Id == id, cancellationToken);
+
+            post.Status = PostStatus.Scheduled;
+        }
+        else
+        {
+            postSchedule.IsCompleted = true;
+            postSchedule.NextRunAt = null;
+        }
+
+        await _database.SaveChangesAsync(cancellationToken);
+
+        return result;
     }
 
     private async Task<ResultDto> PublishInternalAsync(
