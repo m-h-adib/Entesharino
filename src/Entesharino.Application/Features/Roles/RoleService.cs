@@ -14,7 +14,9 @@ public sealed class RoleService : IRoleService
 
     public async Task<ResultOfList<RoleListItemDto>> GetListAsync(CancellationToken cancellationToken = default)
     {
-        var roles = await _database.Roles.AsNoTracking().Where(x => !x.IsRemoved).OrderBy(x => x.Name)
+        var roles = await _database.Roles.AsNoTracking()
+            .Where(x => !x.IsRemoved)
+            .OrderBy(x => x.Name)
             .Select(x => new RoleListItemDto
             {
                 Id = x.Id, Name = x.Name, DisplayName = x.DisplayName,
@@ -25,23 +27,27 @@ public sealed class RoleService : IRoleService
 
     public async Task<ResultDto<RoleDetailsDto>> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
-        var role = await _database.Roles.AsNoTracking().Where(x => x.Id == id && !x.IsRemoved)
+        var role = await _database.Roles.AsNoTracking()
+            .Where(x => x.Id == id && !x.IsRemoved)
             .Select(x => new RoleDetailsDto
             {
                 Id = x.Id, Name = x.Name, DisplayName = x.DisplayName, IsActive = x.IsActive,
-                Permissions = x.RolePermissions.Where(rp => rp.Permission.IsActive && !rp.Permission.IsRemoved)
+                Permissions = x.RolePermissions
+                    .Where(rp => rp.Permission.IsActive && !rp.Permission.IsRemoved)
                     .OrderBy(rp => rp.Permission.Code)
-                    .Select(rp => new PermissionDto { Id = rp.Permission.Id, Code = rp.Permission.Code, Title = rp.Permission.Title }).ToList()
+                    .Select(rp => new PermissionDto
+                    {
+                        Id = rp.Permission.Id, Code = rp.Permission.Code, Title = rp.Permission.Title
+                    }).ToList()
             }).SingleOrDefaultAsync(cancellationToken);
 
-        return role is null
-            ? ResultDto<RoleDetailsDto>.Fail("نقش موردنظر پیدا نشد.", 404)
-            : ResultDto<RoleDetailsDto>.Ok(role);
+        return role is null ? ResultDto<RoleDetailsDto>.Fail("نقش موردنظر پیدا نشد.", 404) : ResultDto<RoleDetailsDto>.Ok(role);
     }
 
     public async Task<ResultOfList<PermissionDto>> GetPermissionsAsync(CancellationToken cancellationToken = default)
     {
-        var permissions = await _database.Permissions.AsNoTracking().Where(x => x.IsActive && !x.IsRemoved)
+        var permissions = await _database.Permissions.AsNoTracking()
+            .Where(x => x.IsActive && !x.IsRemoved)
             .OrderBy(x => x.Code)
             .Select(x => new PermissionDto { Id = x.Id, Code = x.Code, Title = x.Title })
             .ToListAsync(cancellationToken);
@@ -64,11 +70,13 @@ public sealed class RoleService : IRoleService
 
     public async Task<ResultDto<RoleDetailsDto>> UpdateAsync(long id, UpdateRoleRequest request, CancellationToken cancellationToken = default)
     {
+        var displayName = request.DisplayName.Trim();
+
         var role = await _database.Roles.SingleOrDefaultAsync(x => x.Id == id && !x.IsRemoved, cancellationToken);
         if (role is null)
             return ResultDto<RoleDetailsDto>.Fail("نقش موردنظر پیدا نشد.", 404);
 
-        role.DisplayName = request.DisplayName.Trim();
+        role.DisplayName = displayName;
         await _database.SaveChangesAsync(cancellationToken);
         return await GetByIdAsync(id, cancellationToken);
     }
