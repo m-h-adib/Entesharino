@@ -66,10 +66,16 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(30);
         });
 
+        services.AddHttpClient<RubikaMessageSender>(client =>
+        {
+            client.BaseAddress = new Uri("https://botapi.rubika.ir/v3/");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
         services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<TelegramMessageSender>());
         services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<BaleMessageSender>());
         services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<EitaaMessageSender>());
-        services.AddScoped<IMessageSender, RubikaMessageSender>();
+        services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<RubikaMessageSender>());
 
         services.AddDataProtection();
         services.AddHttpContextAccessor();
