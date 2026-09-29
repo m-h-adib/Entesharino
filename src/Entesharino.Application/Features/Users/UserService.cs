@@ -85,9 +85,6 @@ public sealed class UserService : IUserService
         var username = request.Username.Trim();
         var email = request.Email.Trim().ToLowerInvariant();
 
-        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(request.Password))
-            return ResultDto<UserDetailsDto>.Fail("نام کاربری، ایمیل و رمز عبور الزامی است.", 400);
-
         var exists = await _database.Users.AnyAsync(x => x.Username == username || x.Email == email, cancellationToken);
         if (exists)
             return ResultDto<UserDetailsDto>.Fail("نام کاربری یا ایمیل قبلاً ثبت شده است.", 409);
