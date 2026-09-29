@@ -21,6 +21,13 @@ public abstract class UnsupportedMessageSender : IMessageSender
         CancellationToken cancellationToken = default) =>
         Task.FromResult(new SenderResult(false,
             ErrorMessage: $"ارسال پیام به پلتفرم {Platform} هنوز پیاده‌سازی نشده است."));
+
+    public Task<SenderResult> SendMediaAsync(
+        ChannelCredentials credentials,
+        MediaMessage media,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new SenderResult(false,
+            ErrorMessage: $"ارسال رسانه به پلتفرم {Platform} هنوز پیاده‌سازی نشده است."));
 }
 
 public sealed class RubikaMessageSender : IMessageSender
