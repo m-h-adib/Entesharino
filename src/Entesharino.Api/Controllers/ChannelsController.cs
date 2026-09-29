@@ -82,6 +82,16 @@ public sealed class ChannelsController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    [HttpPost("{id:long}/test-connection")]
+    [HasPermission(PermissionCodes.ChannelsManage)]
+    public async Task<IActionResult> TestConnection(
+        long id,
+        CancellationToken cancellationToken)
+    {
+        var result = await _channelService.TestConnectionAsync(id, cancellationToken);
+        return StatusCode(result.StatusCode, result);
+    }
+
     [HttpDelete("{id:long}")]
     [HasPermission(PermissionCodes.ChannelsManage)]
     public async Task<IActionResult> Delete(
