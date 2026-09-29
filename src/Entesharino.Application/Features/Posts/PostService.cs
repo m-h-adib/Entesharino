@@ -92,57 +92,107 @@ public sealed class PostService : IPostService
         var post = await _database.Posts
             .AsNoTracking()
             .Where(x => x.Id == id && x.UserId == userId.Value && !x.IsRemoved)
-            .Select(x => new PostDetailsDto
-            {
-                Id = x.Id,
-                Title = x.Title,
-                Content = x.Content,
-                Status = x.Status,
-                CreatedAt = x.CreatedAt,
-                Channels = x.Channels
-                    .Where(c => !c.IsRemoved)
-                    .Select(c => new PostChannelDto
-                    {
-                        ChannelId = c.ChannelId,
-                        ChannelName = c.Channel.Name,
-                        Platform = c.Channel.Platform,
-                        Status = c.Status,
-                        ScheduledAt = c.ScheduledAt,
-                        SentAt = c.SentAt,
-                        ExternalMessageId = c.ExternalMessageId,
-                        ErrorMessage = c.ErrorMessage,
-                        RetryCount = c.RetryCount
-                    })
-                    .ToList(),
-                Media = x.Media
-                    .Where(m => !m.IsRemoved)
-                    .OrderBy(m => m.Id)
-                    .Select(m => new PostMediaDto
-                    {
-                        Id = m.Id,
-                        MediaType = m.MediaType,
-                        FileName = m.FileName,
-                        FileUrl = m.FileUrl,
-                        FileSize = m.FileSize
-                    })
-                    .ToList(),
-                Schedule = x.Schedule == null
-                    ? null
-                    : new PostScheduleDto
-                    {
-                        ScheduleType = x.Schedule.ScheduleType,
-                        ScheduledAt = x.Schedule.ScheduledAt,
-                        CronExpression = x.Schedule.CronExpression,
-                        TimeZone = x.Schedule.TimeZone,
-                        NextRunAt = x.Schedule.NextRunAt,
-                        IsCompleted = x.Schedule.IsCompleted
-                    }
-            })
+            .Include(x => x.Channels)
+                .ThenInclude(x => x.Channel)
+            .Include(x => x.Media)
             .SingleOrDefaultAsync(cancellationToken);
 
-        return post is null
-            ? ResultDto<PostDetailsDto>.Fail("پست موردنظر پیدا نشد.", 404)
-            : ResultDto<PostDetailsDto>.Ok(post);
+        if (post is null)
+            return ResultDto<PostDetailsDto>.Fail(
+                "پست موردنظر پیدا نشد.", 404);
+
+        var channels = post.Channels
+            .Where(x => !x.IsRemoved)
+            .OrderBy(x => x.Id)
+            .ToList();
+
+        var media = post.Media
+            .Where(x => !x.IsRemoved)
+            .OrderBy(x => x.Id)
+            .ToList();
+
+        var deliveries = await _database.PostMediaDeliveries
+            .AsNoTracking()
+            .Where(x =>
+                !x.IsRemoved &&
+                channels.Select(c => c.Id).Contains(x.PostChannelId) &&
+                media.Select(m => m.Id).Contains(x.PostMediaId))
+            .ToListAsync(cancellationToken);
+
+        var deliveryMap = deliveries
+            .GroupBy(x => new { x.PostChannelId, x.PostMediaId })
+            .ToDictionary(
+                x => (x.Key.PostChannelId, x.Key.PostMediaId),
+                x => x.OrderByDescending(d => d.Id).First());
+
+        var mediaDtos = media
+            .Select(item => new PostMediaDto
+            {
+                Id = item.Id,
+                MediaType = item.MediaType,
+                FileName = item.FileName,
+                FileUrl = item.FileUrl,
+                FileSize = item.FileSize,
+                Deliveries = channels
+                    .Select(channel =>
+                    {
+                        deliveryMap.TryGetValue(
+                            (channel.Id, item.Id),
+                            out var delivery);
+
+                        return new PostMediaDeliveryItemDto
+                        {
+                            MediaId = item.Id,
+                            FileName = item.FileName,
+                            MediaType = item.MediaType,
+                            FileSize = item.FileSize,
+                            Status = delivery?.Status ?? DeliveryStatus.Pending,
+                            SentAt = delivery?.SentAt,
+                            ExternalMessageId = delivery?.ExternalMessageId,
+                            ErrorMessage = delivery?.ErrorMessage,
+                            RetryCount = delivery?.RetryCount ?? 0
+                        };
+                    })
+                    .ToList()
+            })
+            .ToList();
+
+        var details = new PostDetailsDto
+        {
+            Id = post.Id,
+            Title = post.Title,
+            Content = post.Content,
+            Status = post.Status,
+            CreatedAt = post.CreatedAt,
+            Channels = channels
+                .Select(c => new PostChannelDto
+                {
+                    ChannelId = c.ChannelId,
+                    ChannelName = c.Channel.Name,
+                    Platform = c.Channel.Platform,
+                    Status = c.Status,
+                    ScheduledAt = c.ScheduledAt,
+                    SentAt = c.SentAt,
+                    ExternalMessageId = c.ExternalMessageId,
+                    ErrorMessage = c.ErrorMessage,
+                    RetryCount = c.RetryCount
+                })
+                .ToList(),
+            Media = mediaDtos,
+            Schedule = post.Schedule == null
+                ? null
+                : new PostScheduleDto
+                {
+                    ScheduleType = post.Schedule.ScheduleType,
+                    ScheduledAt = post.Schedule.ScheduledAt,
+                    CronExpression = post.Schedule.CronExpression,
+                    TimeZone = post.Schedule.TimeZone,
+                    NextRunAt = post.Schedule.NextRunAt,
+                    IsCompleted = post.Schedule.IsCompleted
+                }
+        };
+
+        return ResultDto<PostDetailsDto>.Ok(details);
     }
 
     public async Task<ResultDto<PostMediaDeliveryReportDto>> GetMediaDeliveryReportAsync(
