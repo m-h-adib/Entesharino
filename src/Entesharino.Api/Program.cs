@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Entesharino.Api.Extensions;
 using Entesharino.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,6 +41,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
 app.UseHttpsRedirection();
+app.UseApiMiddlewares();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
