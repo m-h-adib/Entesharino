@@ -13,17 +13,20 @@ public sealed class PostService : IPostService
     private readonly ICurrentUserService _currentUser;
     private readonly ISecretProtector _secretProtector;
     private readonly IMessageSenderFactory _senderFactory;
+    private readonly IPostScheduler _postScheduler;
 
     public PostService(
         IDatabaseContext database,
         ICurrentUserService currentUser,
         ISecretProtector secretProtector,
-        IMessageSenderFactory senderFactory)
+        IMessageSenderFactory senderFactory,
+        IPostScheduler postScheduler)
     {
         _database = database;
         _currentUser = currentUser;
         _secretProtector = secretProtector;
         _senderFactory = senderFactory;
+        _postScheduler = postScheduler;
     }
 
     public async Task<ResultOfList<PostListItemDto>> GetListAsync(
@@ -275,6 +278,7 @@ public sealed class PostService : IPostService
         post.Status = PostStatus.Cancelled;
 
         await _database.SaveChangesAsync(cancellationToken);
+        await _postScheduler.RemoveAsync(post.Id, cancellationToken);
 
         return ResultDto.Ok("پست با موفقیت حذف شد.");
     }
@@ -287,12 +291,39 @@ public sealed class PostService : IPostService
         if (!userId.HasValue)
             return ResultDto.Fail("کاربر جاری شناسایی نشد.", 401);
 
+        return await PublishInternalAsync(id, userId.Value, cancellationToken);
+    }
+
+    public async Task<ResultDto> ExecuteScheduledAsync(
+        long id,
+        CancellationToken cancellationToken = default)
+    {
+        var post = await _database.Posts
+            .AsNoTracking()
+            .Where(x => x.Id == id && !x.IsRemoved)
+            .Select(x => new { x.Id, x.UserId, x.Status })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (post is null)
+            return ResultDto.Fail("پست زمان‌بندی‌شده پیدا نشد.", 404);
+
+        if (post.Status != PostStatus.Scheduled)
+            return ResultDto.Ok("پست در وضعیت قابل اجرای زمان‌بندی نیست.");
+
+        return await PublishInternalAsync(post.Id, post.UserId, cancellationToken);
+    }
+
+    private async Task<ResultDto> PublishInternalAsync(
+        long id,
+        long ownerUserId,
+        CancellationToken cancellationToken = default)
+    {
         var post = await _database.Posts
             .Include(x => x.Channels)
                 .ThenInclude(x => x.Channel)
                     .ThenInclude(x => x.Connection)
             .SingleOrDefaultAsync(
-                x => x.Id == id && x.UserId == userId.Value && !x.IsRemoved,
+                x => x.Id == id && x.UserId == ownerUserId && !x.IsRemoved,
                 cancellationToken);
 
         if (post is null)
@@ -476,6 +507,14 @@ public sealed class PostService : IPostService
         post.Status = PostStatus.Scheduled;
 
         await _database.SaveChangesAsync(cancellationToken);
+
+        await _postScheduler.ScheduleAsync(
+            post.Id,
+            request.ScheduleType,
+            request.ScheduledAt,
+            post.Schedule.CronExpression,
+            post.Schedule.TimeZone,
+            cancellationToken);
 
         return ResultDto.Ok("پست با موفقیت زمان‌بندی شد.");
     }
