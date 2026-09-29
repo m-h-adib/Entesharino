@@ -44,9 +44,15 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(30);
         });
 
+        services.AddHttpClient<EitaaMessageSender>(client =>
+        {
+            client.BaseAddress = new Uri("https://eitaayar.ir/api/");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
         services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<TelegramMessageSender>());
         services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<BaleMessageSender>());
-        services.AddScoped<IMessageSender, EitaaMessageSender>();
+        services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<EitaaMessageSender>());
         services.AddScoped<IMessageSender, RubikaMessageSender>();
 
         services.AddDataProtection();
