@@ -13,19 +13,14 @@ public sealed class AuthService : IAuthService
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
 
-    public AuthService(
-        IDatabaseContext database,
-        IPasswordHasher passwordHasher,
-        ITokenService tokenService)
+    public AuthService(IDatabaseContext database, IPasswordHasher passwordHasher, ITokenService tokenService)
     {
         _database = database;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
     }
 
-    public async Task<ResultDto<AuthResponse>> RegisterAsync(
-        RegisterRequest request,
-        CancellationToken cancellationToken = default)
+    public async Task<ResultDto<AuthResponse>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
         var username = request.Username.Trim();
         var email = request.Email.Trim().ToLowerInvariant();
@@ -35,25 +30,14 @@ public sealed class AuthService : IAuthService
             cancellationToken);
 
         if (exists)
-        {
-            return ResultDto<AuthResponse>.Fail(
-                "نام کاربری یا ایمیل قبلاً ثبت شده است.",
-                409);
-        }
+            return ResultDto<AuthResponse>.Fail("نام کاربری یا ایمیل قبلاً ثبت شده است.", 409);
 
-        var userRole = await _database.Roles
-            .SingleOrDefaultAsync(
-                x => x.Name == RoleNames.User &&
-                     x.IsActive &&
-                     !x.IsRemoved,
-                cancellationToken);
+        var userRole = await _database.Roles.SingleOrDefaultAsync(
+            x => x.Name == RoleNames.User && x.IsActive && !x.IsRemoved,
+            cancellationToken);
 
         if (userRole is null)
-        {
-            return ResultDto<AuthResponse>.Fail(
-                "نقش پیش‌فرض کاربر در سیستم تعریف نشده است.",
-                500);
-        }
+            return ResultDto<AuthResponse>.Fail("نقش پیش‌فرض کاربر در سیستم تعریف نشده است.", 500);
 
         var user = new User
         {
@@ -64,31 +48,20 @@ public sealed class AuthService : IAuthService
             PasswordHash = _passwordHasher.Hash(request.Password)
         };
 
-        user.UserRoles.Add(new UserRole
-        {
-            RoleId = userRole.Id
-        });
+        user.UserRoles.Add(new UserRole { RoleId = userRole.Id });
 
         _database.Users.Add(user);
         await _database.SaveChangesAsync(cancellationToken);
 
-        var token = await _tokenService.CreateAccessTokenAsync(
-            user,
-            cancellationToken);
+        var token = await _tokenService.CreateAccessTokenAsync(user, cancellationToken);
 
         return ResultDto<AuthResponse>.Ok(
-            new AuthResponse
-            {
-                UserId = user.Id,
-                AccessToken = token
-            },
+            new AuthResponse { UserId = user.Id, AccessToken = token },
             "ثبت‌نام با موفقیت انجام شد.",
             201);
     }
 
-    public async Task<ResultDto<AuthResponse>> LoginAsync(
-        LoginRequest request,
-        CancellationToken cancellationToken = default)
+    public async Task<ResultDto<AuthResponse>> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         var value = request.UsernameOrEmail.Trim();
         var email = value.ToLowerInvariant();
@@ -98,33 +71,18 @@ public sealed class AuthService : IAuthService
             cancellationToken);
 
         if (user is null || user.IsRemoved || !user.IsActive)
-        {
-            return ResultDto<AuthResponse>.Fail(
-                "نام کاربری یا رمز عبور صحیح نیست.",
-                401);
-        }
+            return ResultDto<AuthResponse>.Fail("نام کاربری یا رمز عبور صحیح نیست.", 401);
 
         if (!_passwordHasher.Verify(request.Password, user.PasswordHash))
-        {
-            return ResultDto<AuthResponse>.Fail(
-                "نام کاربری یا رمز عبور صحیح نیست.",
-                401);
-        }
+            return ResultDto<AuthResponse>.Fail("نام کاربری یا رمز عبور صحیح نیست.", 401);
 
         user.LastLoginAt = DateTime.UtcNow;
         await _database.SaveChangesAsync(cancellationToken);
 
-        var token = await _tokenService.CreateAccessTokenAsync(
-            user,
-            cancellationToken);
+        var token = await _tokenService.CreateAccessTokenAsync(user, cancellationToken);
 
         return ResultDto<AuthResponse>.Ok(
-            new AuthResponse
-            {
-                UserId = user.Id,
-                AccessToken = token
-            },
-            "ورود با موفقیت انجام شد.",
-            200);
+            new AuthResponse { UserId = user.Id, AccessToken = token },
+            "ورود با موفقیت انجام شد.");
     }
 }
