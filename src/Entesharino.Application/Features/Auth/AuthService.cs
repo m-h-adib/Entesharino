@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Entesharino.Application.Common.Interfaces;
 using Entesharino.Application.Common.Models;
 using Entesharino.Application.Features.Auth.Models;
+using Entesharino.Domain.Constants;
 using Entesharino.Domain.Entities;
 
 namespace Entesharino.Application.Features.Auth;
@@ -49,6 +50,20 @@ public sealed class AuthService : IAuthService
                 409);
         }
 
+        var userRole = await _database.Roles
+            .SingleOrDefaultAsync(
+                x => x.Name == RoleNames.User &&
+                     x.IsActive &&
+                     !x.IsRemoved,
+                cancellationToken);
+
+        if (userRole is null)
+        {
+            return ResultDto<AuthResponse>.Fail(
+                "نقش پیش‌فرض کاربر در سیستم تعریف نشده است.",
+                500);
+        }
+
         var user = new User
         {
             FirstName = request.FirstName.Trim(),
@@ -58,10 +73,17 @@ public sealed class AuthService : IAuthService
             PasswordHash = _passwordHasher.Hash(request.Password)
         };
 
+        user.UserRoles.Add(new UserRole
+        {
+            RoleId = userRole.Id
+        });
+
         _database.Users.Add(user);
         await _database.SaveChangesAsync(cancellationToken);
 
-        var token = _tokenService.CreateAccessToken(user);
+        var token = await _tokenService.CreateAccessTokenAsync(
+            user,
+            cancellationToken);
 
         return ResultDto<AuthResponse>.Ok(
             new AuthResponse
@@ -101,7 +123,9 @@ public sealed class AuthService : IAuthService
         user.LastLoginAt = DateTime.UtcNow;
         await _database.SaveChangesAsync(cancellationToken);
 
-        var token = _tokenService.CreateAccessToken(user);
+        var token = await _tokenService.CreateAccessTokenAsync(
+            user,
+            cancellationToken);
 
         return ResultDto<AuthResponse>.Ok(
             new AuthResponse
