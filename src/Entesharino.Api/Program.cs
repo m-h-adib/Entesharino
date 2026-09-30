@@ -8,8 +8,17 @@ using Entesharino.Api.Extensions;
 using Entesharino.Api.Validation;
 using Entesharino.Application.Features.Auth.Validators;
 using Entesharino.Infrastructure;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(
+        new DirectoryInfo(
+            Path.Combine(builder.Environment.ContentRootPath, "keys")
+        ))
+    .SetApplicationName("Entesharino");
+
 
 builder.Services.AddControllers(options =>
 {
