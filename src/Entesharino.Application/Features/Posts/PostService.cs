@@ -17,6 +17,7 @@ public sealed class PostService : IPostService
     private readonly IPostScheduler _postScheduler;
     private readonly IPostDeliveryRetryScheduler _retryScheduler;
     private readonly IMediaStorage _mediaStorage;
+    private readonly IChannelAccessService _channelAccess;
 
     public PostService(
         IDatabaseContext database,
@@ -25,7 +26,8 @@ public sealed class PostService : IPostService
         IMessageSenderFactory senderFactory,
         IPostScheduler postScheduler,
         IPostDeliveryRetryScheduler retryScheduler,
-        IMediaStorage mediaStorage)
+        IMediaStorage mediaStorage,
+        IChannelAccessService channelAccess)
     {
         _database = database;
         _currentUser = currentUser;
@@ -34,6 +36,7 @@ public sealed class PostService : IPostService
         _postScheduler = postScheduler;
         _retryScheduler = retryScheduler;
         _mediaStorage = mediaStorage;
+        _channelAccess = channelAccess;
     }
 
     public async Task<ResultOfList<PostListItemDto>> GetListAsync(
@@ -335,9 +338,9 @@ public sealed class PostService : IPostService
         var channels = await _database.Channels
             .Where(x =>
                 channelIds.Contains(x.Id) &&
-                x.UserId == userId.Value &&
                 !x.IsRemoved &&
-                x.IsActive)
+                x.IsActive &&
+                (x.UserId == userId.Value || x.UserAccesses.Any(a => a.UserId == userId.Value && !a.IsRemoved && a.IsActive)))
             .ToListAsync(cancellationToken);
 
         if (channels.Count == 0)
@@ -398,14 +401,14 @@ public sealed class PostService : IPostService
         var channels = await _database.Channels
             .Where(x =>
                 channelIds.Contains(x.Id) &&
-                x.UserId == userId.Value &&
                 !x.IsRemoved &&
-                x.IsActive)
+                x.IsActive &&
+                (x.UserId == userId.Value || x.UserAccesses.Any(a => a.UserId == userId.Value && !a.IsRemoved && a.IsActive)))
             .ToListAsync(cancellationToken);
 
         if (channels.Count != channelIds.Count)
             return ResultDto<PostDetailsDto>.Fail(
-                "یک یا چند کانال انتخاب‌شده معتبر، فعال یا متعلق به کاربر جاری نیست.", 400);
+                "یک یا چند کانال انتخاب‌شده معتبر، فعال یا در دسترس کاربر نیست.", 400);
 
         var post = new Post
         {
@@ -807,6 +810,13 @@ public sealed class PostService : IPostService
         var targets = post.Channels
             .Where(x => !x.IsRemoved && x.Channel.IsActive)
             .ToList();
+
+        if (targets.Count > 0)
+        {
+            var accessibleIds = await _channelAccess.GetAccessibleChannelIdsAsync(ownerUserId, cancellationToken);
+            if (targets.Any(x => !accessibleIds.Contains(x.ChannelId)))
+                return ResultDto.Fail("این پست شامل کانالی است که کاربر فعلی اجازه ارسال به آن را ندارد.", 403);
+        }
 
         if (targets.Count == 0)
             return ResultDto.Fail("هیچ کانال فعال و معتبری برای ارسال وجود ندارد.", 400);
