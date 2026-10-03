@@ -11,4 +11,5 @@ public sealed class ChannelUserAccessDto
     public string FullName { get; init; } = string.Empty;
     public string Username { get; init; } = string.Empty;
     public bool IsOwner { get; init; }
+    public bool HasAccess { get; init; }
 }
