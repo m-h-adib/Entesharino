@@ -14,6 +14,7 @@ public class ApplicationDbContext : DbContext, IDatabaseContext
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Channel> Channels => Set<Channel>();
+    public DbSet<ChannelUserAccess> ChannelUserAccesses => Set<ChannelUserAccess>();
     public DbSet<ChannelConnection> ChannelConnections => Set<ChannelConnection>();
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<PostMedia> PostMedia => Set<PostMedia>();
