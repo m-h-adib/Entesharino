@@ -59,12 +59,14 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins(
                 "http://localhost:3000",
-                "https://localhost:3000"
+                "https://localhost:3000",
+                "https://mighat.amoozeshbeseh.ir"
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
     });
+    
 });
 
 var jwtKey = builder.Configuration["Jwt:Key"]
