@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IChannelService, ChannelService>();
+        services.AddScoped<IChannelAccessService, ChannelAccessService>();
         services.AddScoped<IPostService, PostService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IPostDeliveryService, PostDeliveryService>();
