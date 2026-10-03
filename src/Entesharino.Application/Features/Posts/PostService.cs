@@ -469,9 +469,9 @@ public sealed class PostService : IPostService
         var channels = await _database.Channels
             .Where(x =>
                 channelIds.Contains(x.Id) &&
-                x.UserId == userId.Value &&
                 !x.IsRemoved &&
-                x.IsActive)
+                x.IsActive &&
+                (x.UserId == userId.Value || x.UserAccesses.Any(a => a.UserId == userId.Value && !a.IsRemoved && a.IsActive)))
             .ToListAsync(cancellationToken);
 
         if (channels.Count != channelIds.Count)
