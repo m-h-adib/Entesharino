@@ -17,8 +17,41 @@ public static class DatabaseInitializationExtensions
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
         await db.Database.EnsureCreatedAsync(cancellationToken);
+        await EnsureChannelAccessTableAsync(db, cancellationToken);
 
         await SeedRolesAndPermissionsAsync(db, cancellationToken);
+    }
+
+
+    private static async Task EnsureChannelAccessTableAsync(
+        ApplicationDbContext db,
+        CancellationToken cancellationToken)
+    {
+        await db.Database.ExecuteSqlRawAsync("""
+IF OBJECT_ID(N'[ChannelUserAccesses]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [ChannelUserAccesses]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT [PK_ChannelUserAccesses] PRIMARY KEY,
+        [ChannelId] BIGINT NOT NULL,
+        [UserId] BIGINT NOT NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsActive] BIT NOT NULL CONSTRAINT [DF_ChannelUserAccesses_IsActive] DEFAULT (1),
+        [IsRemoved] BIT NOT NULL CONSTRAINT [DF_ChannelUserAccesses_IsRemoved] DEFAULT (0),
+        CONSTRAINT [FK_ChannelUserAccesses_Channels_ChannelId]
+            FOREIGN KEY ([ChannelId]) REFERENCES [Channels]([Id]) ON DELETE CASCADE,
+        CONSTRAINT [FK_ChannelUserAccesses_Users_UserId]
+            FOREIGN KEY ([UserId]) REFERENCES [Users]([Id]) ON DELETE NO ACTION
+    );
+
+    CREATE UNIQUE INDEX [IX_ChannelUserAccesses_ChannelId_UserId]
+        ON [ChannelUserAccesses]([ChannelId], [UserId]);
+
+    CREATE INDEX [IX_ChannelUserAccesses_UserId]
+        ON [ChannelUserAccesses]([UserId]);
+END
+""", cancellationToken);
     }
 
     private static async Task SeedRolesAndPermissionsAsync(
