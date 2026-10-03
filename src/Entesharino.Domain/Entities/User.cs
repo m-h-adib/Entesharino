@@ -14,4 +14,5 @@ public class User : BaseEntity
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     public ICollection<Post> Posts { get; set; } = new List<Post>();
     public ICollection<Channel> Channels { get; set; } = new List<Channel>();
+    public ICollection<ChannelUserAccess> ChannelAccesses { get; set; } = new List<ChannelUserAccess>();
 }
