@@ -60,7 +60,7 @@ builder.Services.AddCors(options =>
             .WithOrigins(
                 "http://localhost:3000",
                 "https://localhost:3000",
-                "https://mighat.amoozeshbeseh.ir"
+                "https://bot.amoozeshbeseh.ir"
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
