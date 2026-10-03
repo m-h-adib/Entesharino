@@ -40,10 +40,12 @@ public sealed class ChannelService : IChannelService
         var pageSize = request.PageSize;
         var search = request.Search?.Trim();
 
+        var isAdmin = await _channelAccess.IsAdminAsync(userId.Value, cancellationToken);
+
         var query = _database.Channels
             .AsNoTracking()
             .Where(x => !x.IsRemoved &&
-                (x.UserId == userId.Value || x.UserAccesses.Any(a => a.UserId == userId.Value && !a.IsRemoved && a.IsActive)));
+                (isAdmin || x.UserId == userId.Value || x.UserAccesses.Any(a => a.UserId == userId.Value && !a.IsRemoved && a.IsActive)));
 
         if (request.Platform.HasValue)
             query = query.Where(x => x.Platform == request.Platform.Value);
