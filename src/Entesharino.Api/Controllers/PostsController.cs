@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Entesharino.Application.Common.Interfaces;
 using Entesharino.Api.Authorization;
 using Entesharino.Application.Common.Interfaces;
 using Entesharino.Application.Features.Posts.Models;
@@ -13,10 +15,17 @@ namespace Entesharino.Api.Controllers;
 public sealed class PostsController : ControllerBase
 {
     private readonly IPostService _postService;
+    private readonly IDatabaseContext _database;
+    private readonly IMediaStorage _mediaStorage;
 
-    public PostsController(IPostService postService)
+    public PostsController(
+        IPostService postService,
+        IDatabaseContext database,
+        IMediaStorage mediaStorage)
     {
         _postService = postService;
+        _database = database;
+        _mediaStorage = mediaStorage;
     }
 
     [HttpGet]
@@ -37,6 +46,57 @@ public sealed class PostsController : ControllerBase
     {
         var result = await _postService.GetByIdAsync(id, cancellationToken);
         return StatusCode(result.StatusCode, result);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("media/{mediaId:long}")]
+    public async Task<IActionResult> GetMedia(
+        long mediaId,
+        CancellationToken cancellationToken)
+    {
+        var media = await _database.PostMedia
+            .AsNoTracking()
+            .Where(x => x.Id == mediaId && !x.IsRemoved && !x.Post.IsRemoved)
+            .Select(x => new
+            {
+                x.Id,
+                x.FileUrl,
+                x.FileName,
+                x.MediaType
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (media is null)
+            return NotFound();
+
+        try
+        {
+            var stream = await _mediaStorage.OpenReadAsync(
+                media.FileUrl,
+                cancellationToken);
+
+            var contentType = Path.GetExtension(media.FileName).ToLowerInvariant() switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".webp" => "image/webp",
+                ".bmp" => "image/bmp",
+                ".svg" => "image/svg+xml",
+                ".mp4" => "video/mp4",
+                ".mov" => "video/quicktime",
+                ".mp3" => "audio/mpeg",
+                ".wav" => "audio/wav",
+                ".pdf" => "application/pdf",
+                _ => "application/octet-stream"
+            };
+
+            return File(stream, contentType, enableRangeProcessing: true);
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound();
+        }
     }
 
     [HttpGet("{id:long}/media-delivery-report")]
