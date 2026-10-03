@@ -300,6 +300,84 @@ public sealed class PostService : IPostService
             });
     }
 
+
+    public async Task<ResultDto<PostDetailsDto>> RepublishAsync(
+        long id,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = _currentUser.UserId;
+        if (!userId.HasValue)
+            return ResultDto<PostDetailsDto>.Fail("کاربر جاری شناسایی نشد.", 401);
+
+        var source = await _database.Posts
+            .AsNoTracking()
+            .Include(x => x.Channels)
+            .Include(x => x.Media)
+            .SingleOrDefaultAsync(
+                x => x.Id == id &&
+                     x.UserId == userId.Value &&
+                     !x.IsRemoved,
+                cancellationToken);
+
+        if (source is null)
+            return ResultDto<PostDetailsDto>.Fail("پست موردنظر پیدا نشد.", 404);
+
+        var channelIds = source.Channels
+            .Where(x => !x.IsRemoved)
+            .Select(x => x.ChannelId)
+            .Distinct()
+            .ToList();
+
+        if (channelIds.Count == 0)
+            return ResultDto<PostDetailsDto>.Fail(
+                "پست اصلی هیچ کانال فعالی برای بازنشر ندارد.", 400);
+
+        var channels = await _database.Channels
+            .Where(x =>
+                channelIds.Contains(x.Id) &&
+                x.UserId == userId.Value &&
+                !x.IsRemoved &&
+                x.IsActive)
+            .ToListAsync(cancellationToken);
+
+        if (channels.Count == 0)
+            return ResultDto<PostDetailsDto>.Fail(
+                "هیچ‌یک از کانال‌های پست اصلی فعال نیستند.", 400);
+
+        var post = new Post
+        {
+            UserId = userId.Value,
+            Title = source.Title,
+            Content = source.Content,
+            Status = PostStatus.Draft
+        };
+
+        foreach (var channel in channels)
+        {
+            post.Channels.Add(new PostChannel
+            {
+                ChannelId = channel.Id,
+                Status = DeliveryStatus.Pending
+            });
+        }
+
+        foreach (var media in source.Media.Where(x => !x.IsRemoved))
+        {
+            post.Media.Add(new PostMedia
+            {
+                MediaType = media.MediaType,
+                FileName = media.FileName,
+                FileUrl = media.FileUrl,
+                FileSize = media.FileSize
+            });
+        }
+
+        _database.Posts.Add(post);
+        await _database.SaveChangesAsync(cancellationToken);
+
+        return await GetByIdAsync(post.Id, cancellationToken);
+    }
+
     public async Task<ResultDto<PostDetailsDto>> CreateAsync(
         CreatePostRequest request,
         CancellationToken cancellationToken = default)
