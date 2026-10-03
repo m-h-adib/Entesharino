@@ -47,7 +47,8 @@ public static class DependencyInjection
         services.AddScoped<IPostDeliveryService, PostDeliveryService>();
         services.AddScoped<IPostDeliveryRetryScheduler, HangfireDeliveryRetryScheduler>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
-        services.AddScoped<ISecretProtector, DataProtectionSecretProtector>();
+        services.AddScoped<ISecretProtector, ChannelSecretProtector>();
+
         services.AddScoped<IMessageSenderFactory, MessageSenderFactory>();
         services.AddScoped<IPostScheduler, HangfirePostScheduler>();
         services.AddScoped<IMediaStorage, LocalMediaStorage>();
@@ -81,7 +82,6 @@ public static class DependencyInjection
         services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<EitaaMessageSender>());
         services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<RubikaMessageSender>());
 
-        services.AddDataProtection();
         services.AddHttpContextAccessor();
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
