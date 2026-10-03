@@ -11,6 +11,7 @@ public interface IDatabaseContext
     DbSet<UserRole> UserRoles { get; }
     DbSet<RolePermission> RolePermissions { get; }
     DbSet<Channel> Channels { get; }
+    DbSet<ChannelUserAccess> ChannelUserAccesses { get; }
     DbSet<ChannelConnection> ChannelConnections { get; }
     DbSet<Post> Posts { get; }
     DbSet<PostMedia> PostMedia { get; }
