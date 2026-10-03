@@ -56,7 +56,7 @@ public static class DependencyInjection
         services.AddHttpClient<TelegramMessageSender>(client =>
         {
             client.BaseAddress = new Uri("https://api.telegram.org/");
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromMinutes(10);
         });
 
         services.AddHttpClient<BaleMessageSender>(client =>
