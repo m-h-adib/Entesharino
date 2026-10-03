@@ -106,6 +106,16 @@ public sealed class PostsController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    [HttpPost("{id:long}/republish")]
+    [HasPermission(PermissionCodes.PostsCreate)]
+    public async Task<IActionResult> Republish(
+        long id,
+        CancellationToken cancellationToken)
+    {
+        var result = await _postService.RepublishAsync(id, cancellationToken);
+        return StatusCode(result.StatusCode, result);
+    }
+
     [HttpPost("{id:long}/publish")]
     [HasPermission(PermissionCodes.PostsManage)]
     public async Task<IActionResult> Publish(
