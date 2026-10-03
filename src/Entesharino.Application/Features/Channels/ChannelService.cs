@@ -365,15 +365,16 @@ public sealed class ChannelService : IChannelService
             return ResultOfList<ChannelUserAccessDto>.Fail("کانال موردنظر پیدا نشد.", 404);
 
         var users = await _database.Users.AsNoTracking()
-            .Where(u => !u.IsRemoved && u.IsActive &&
-                (u.Id == channel.UserId || u.ChannelAccesses.Any(a => a.ChannelId == channelId && !a.IsRemoved && a.IsActive)))
+            .Where(u => !u.IsRemoved && u.IsActive)
             .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
             .Select(u => new ChannelUserAccessDto
             {
                 UserId = u.Id,
                 FullName = (u.FirstName + " " + u.LastName).Trim(),
                 Username = u.Username,
-                IsOwner = u.Id == channel.UserId
+                IsOwner = u.Id == channel.UserId,
+                HasAccess = u.Id == channel.UserId ||
+                    u.ChannelAccesses.Any(a => a.ChannelId == channelId && !a.IsRemoved && a.IsActive)
             }).ToListAsync(cancellationToken);
 
         return ResultOfList<ChannelUserAccessDto>.Ok(users, users.Count);
