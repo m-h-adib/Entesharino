@@ -12,17 +12,20 @@ public sealed class ChannelService : IChannelService
     private readonly ICurrentUserService _currentUser;
     private readonly ISecretProtector _secretProtector;
     private readonly IMessageSenderFactory _senderFactory;
+    private readonly IChannelAccessService _channelAccess;
 
     public ChannelService(
         IDatabaseContext database,
         ICurrentUserService currentUser,
         ISecretProtector secretProtector,
-        IMessageSenderFactory senderFactory)
+        IMessageSenderFactory senderFactory,
+        IChannelAccessService channelAccess)
     {
         _database = database;
         _currentUser = currentUser;
         _secretProtector = secretProtector;
         _senderFactory = senderFactory;
+        _channelAccess = channelAccess;
     }
 
     public async Task<ResultOfList<ChannelListItemDto>> GetListAsync(
@@ -39,7 +42,8 @@ public sealed class ChannelService : IChannelService
 
         var query = _database.Channels
             .AsNoTracking()
-            .Where(x => x.UserId == userId.Value && !x.IsRemoved);
+            .Where(x => !x.IsRemoved &&
+                (x.UserId == userId.Value || x.UserAccesses.Any(a => a.UserId == userId.Value && !a.IsRemoved && a.IsActive)));
 
         if (request.Platform.HasValue)
             query = query.Where(x => x.Platform == request.Platform.Value);
@@ -84,7 +88,8 @@ public sealed class ChannelService : IChannelService
 
         var channel = await _database.Channels
             .AsNoTracking()
-            .Where(x => x.Id == id && x.UserId == userId.Value && !x.IsRemoved)
+            .Where(x => x.Id == id && !x.IsRemoved &&
+                (x.UserId == userId.Value || x.UserAccesses.Any(a => a.UserId == userId.Value && !a.IsRemoved && a.IsActive) || _database.UserRoles.Any(r => r.UserId == userId.Value && r.Role.Name == "Admin" && !r.Role.IsRemoved && r.Role.IsActive)))
             .Select(x => new ChannelDetailsDto
             {
                 Id = x.Id,
@@ -338,4 +343,103 @@ public sealed class ChannelService : IChannelService
 
         return ResultDto.Ok("کانال با موفقیت حذف شد.");
     }
+
+    public async Task<ResultOfList<ChannelUserAccessDto>> GetUsersAsync(
+        long channelId,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = _currentUser.UserId;
+        if (!userId.HasValue)
+            return ResultOfList<ChannelUserAccessDto>.Fail("کاربر جاری شناسایی نشد.", 401);
+
+        var canManage = await CanManageAccessAsync(channelId, userId.Value, cancellationToken);
+        if (!canManage)
+            return ResultOfList<ChannelUserAccessDto>.Fail("دسترسی مدیریت کاربران این کانال را ندارید.", 403);
+
+        var channel = await _database.Channels.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == channelId && !x.IsRemoved, cancellationToken);
+
+        if (channel is null)
+            return ResultOfList<ChannelUserAccessDto>.Fail("کانال موردنظر پیدا نشد.", 404);
+
+        var users = await _database.Users.AsNoTracking()
+            .Where(u => !u.IsRemoved && u.IsActive &&
+                (u.Id == channel.UserId || u.ChannelAccesses.Any(a => a.ChannelId == channelId && !a.IsRemoved && a.IsActive)))
+            .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
+            .Select(u => new ChannelUserAccessDto
+            {
+                UserId = u.Id,
+                FullName = (u.FirstName + " " + u.LastName).Trim(),
+                Username = u.Username,
+                IsOwner = u.Id == channel.UserId
+            }).ToListAsync(cancellationToken);
+
+        return ResultOfList<ChannelUserAccessDto>.Ok(users, users.Count);
+    }
+
+    public async Task<ResultDto> SetUsersAsync(
+        long channelId,
+        SetChannelUsersRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = _currentUser.UserId;
+        if (!userId.HasValue)
+            return ResultDto.Fail("کاربر جاری شناسایی نشد.", 401);
+
+        if (!await CanManageAccessAsync(channelId, userId.Value, cancellationToken))
+            return ResultDto.Fail("دسترسی مدیریت کاربران این کانال را ندارید.", 403);
+
+        var channel = await _database.Channels.SingleOrDefaultAsync(
+            x => x.Id == channelId && !x.IsRemoved, cancellationToken);
+
+        if (channel is null)
+            return ResultDto.Fail("کانال موردنظر پیدا نشد.", 404);
+
+        var requestedIds = request.UserIds.Distinct().Where(x => x != channel.UserId).ToHashSet();
+
+        var validIds = await _database.Users
+            .Where(x => requestedIds.Contains(x.Id) && x.IsActive && !x.IsRemoved)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        if (validIds.Count != requestedIds.Count)
+            return ResultDto.Fail("یک یا چند کاربر انتخاب‌شده معتبر نیستند.", 400);
+
+        var existing = await _database.ChannelUserAccesses
+            .Where(x => x.ChannelId == channelId && !x.IsRemoved)
+            .ToListAsync(cancellationToken);
+
+        foreach (var item in existing)
+        {
+            item.IsRemoved = !requestedIds.Contains(item.UserId);
+            item.IsActive = requestedIds.Contains(item.UserId);
+        }
+
+        var existingIds = existing.Select(x => x.UserId).ToHashSet();
+        foreach (var requestedId in requestedIds)
+        {
+            if (!existingIds.Contains(requestedId))
+                _database.ChannelUserAccesses.Add(new ChannelUserAccess
+                {
+                    ChannelId = channelId,
+                    UserId = requestedId,
+                    IsActive = true
+                });
+        }
+
+        await _database.SaveChangesAsync(cancellationToken);
+        return ResultDto.Ok("دسترسی کاربران کانال با موفقیت به‌روزرسانی شد.");
+    }
+
+    private async Task<bool> CanManageAccessAsync(long channelId, long userId, CancellationToken cancellationToken)
+    {
+        var isAdmin = await _channelAccess.IsAdminAsync(userId, cancellationToken);
+        if (isAdmin)
+            return await _database.Channels.AnyAsync(x => x.Id == channelId && !x.IsRemoved, cancellationToken);
+
+        return await _database.Channels.AnyAsync(
+            x => x.Id == channelId && x.UserId == userId && !x.IsRemoved,
+            cancellationToken);
+    }
+
 }
