@@ -406,7 +406,7 @@ public sealed class ChannelService : IChannelService
             return ResultDto.Fail("یک یا چند کاربر انتخاب‌شده معتبر نیستند.", 400);
 
         var existing = await _database.ChannelUserAccesses
-            .Where(x => x.ChannelId == channelId && !x.IsRemoved)
+            .Where(x => x.ChannelId == channelId)
             .ToListAsync(cancellationToken);
 
         foreach (var item in existing)
@@ -418,13 +418,15 @@ public sealed class ChannelService : IChannelService
         var existingIds = existing.Select(x => x.UserId).ToHashSet();
         foreach (var requestedId in requestedIds)
         {
-            if (!existingIds.Contains(requestedId))
-                _database.ChannelUserAccesses.Add(new ChannelUserAccess
-                {
-                    ChannelId = channelId,
-                    UserId = requestedId,
-                    IsActive = true
-                });
+            if (existingIds.Contains(requestedId))
+                continue;
+
+            _database.ChannelUserAccesses.Add(new ChannelUserAccess
+            {
+                ChannelId = channelId,
+                UserId = requestedId,
+                IsActive = true
+            });
         }
 
         await _database.SaveChangesAsync(cancellationToken);
