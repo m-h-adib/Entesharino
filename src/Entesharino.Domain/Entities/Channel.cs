@@ -16,4 +16,5 @@ public class Channel : BaseEntity
     public User User { get; set; } = null!;
     public ChannelConnection? Connection { get; set; }
     public ICollection<PostChannel> PostChannels { get; set; } = new List<PostChannel>();
+    public ICollection<ChannelUserAccess> UserAccesses { get; set; } = new List<ChannelUserAccess>();
 }
