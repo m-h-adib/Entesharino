@@ -62,19 +62,19 @@ public static class DependencyInjection
         services.AddHttpClient<BaleMessageSender>(client =>
         {
             client.BaseAddress = new Uri("https://tapi.bale.ai/");
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromMinutes(10);
         });
 
         services.AddHttpClient<EitaaMessageSender>(client =>
         {
             client.BaseAddress = new Uri("https://eitaayar.ir/api/");
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromMinutes(10);
         });
 
         services.AddHttpClient<RubikaMessageSender>(client =>
         {
             client.BaseAddress = new Uri("https://botapi.rubika.ir/v3/");
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromMinutes(10);
         });
 
         services.AddScoped<IMessageSender>(sp => sp.GetRequiredService<TelegramMessageSender>());
