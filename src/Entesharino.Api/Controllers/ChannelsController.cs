@@ -92,7 +92,23 @@ public sealed class ChannelsController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
-    [HttpDelete("{id:long}")]
+    [HttpGet("{id:long}/users")]
+    [HasPermission(PermissionCodes.ChannelsManage)]
+    public async Task<IActionResult> GetUsers(long id, CancellationToken cancellationToken)
+    {
+        var result = await _channelService.GetUsersAsync(id, cancellationToken);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HttpPut("{id:long}/users")]
+    [HasPermission(PermissionCodes.ChannelsManage)]
+    public async Task<IActionResult> SetUsers(long id, SetChannelUsersRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _channelService.SetUsersAsync(id, request, cancellationToken);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HttpDelete("{id:long}") ]
     [HasPermission(PermissionCodes.ChannelsManage)]
     public async Task<IActionResult> Delete(
         long id,
