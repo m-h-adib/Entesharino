@@ -41,6 +41,10 @@ public interface IPostService
         long id,
         CancellationToken cancellationToken = default);
 
+    Task<ResultDto<PostDetailsDto>> RepublishAsync(
+        long id,
+        CancellationToken cancellationToken = default);
+
     Task<ResultDto> PublishAsync(
         long id,
         CancellationToken cancellationToken = default);
