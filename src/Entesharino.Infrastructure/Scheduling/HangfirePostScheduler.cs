@@ -134,6 +134,11 @@ public sealed class PostExecutionJob
 
     public async Task ExecuteAsync(long postId)
     {
-        await _postService.ExecuteScheduledAsync(postId);
+        var result = await _postService.ExecuteScheduledAsync(postId);
+        if (!result.Success)
+        {
+            throw new InvalidOperationException(
+                $"اجرای زمان‌بندی‌شده پست {postId} ناموفق بود: {result.Message}");
+        }
     }
 }
