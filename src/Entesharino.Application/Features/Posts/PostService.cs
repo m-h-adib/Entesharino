@@ -717,7 +717,9 @@ public sealed class PostService : IPostService
             return ResultDto.Fail("پست زمان‌بندی‌شده پیدا نشد.", 404);
 
         if (schedule.Status != PostStatus.Scheduled || schedule.Schedule is null)
-            return ResultDto.Ok("پست در وضعیت قابل اجرای زمان‌بندی نیست.");
+            return ResultDto.Fail(
+                $"پست {id} در وضعیت قابل اجرای زمان‌بندی نیست. وضعیت فعلی: {schedule.Status}.",
+                409);
 
         var isRecurring =
             schedule.Schedule.ScheduleType is
@@ -738,6 +740,33 @@ public sealed class PostService : IPostService
             var channels = await _database.PostChannels
                 .Where(x => x.PostId == id && !x.IsRemoved)
                 .ToListAsync(cancellationToken);
+
+            // Never reset delivery state while a previous attempt may still be running.
+            if (channels.Any(x => x.Status == DeliveryStatus.Processing))
+                return ResultDto.Fail(
+                    "اجرای زمان‌بندی‌شده متوقف شد؛ حداقل یک کانال هنوز در وضعیت ارسال است.",
+                    409);
+
+            var channelIds = channels.Select(x => x.Id).ToList();
+            var mediaDeliveries = await _database.PostMediaDeliveries
+                .Where(x => channelIds.Contains(x.PostChannelId) && !x.IsRemoved)
+                .ToListAsync(cancellationToken);
+
+            if (mediaDeliveries.Any(x => x.Status == DeliveryStatus.Processing))
+                return ResultDto.Fail(
+                    "اجرای زمان‌بندی‌شده متوقف شد؛ حداقل یک رسانه هنوز در وضعیت ارسال است.",
+                    409);
+
+            // A recurring run must deliver media again; old Sent records belong to
+            // the previous run and otherwise cause SendPostAsync to skip the media.
+            foreach (var delivery in mediaDeliveries)
+            {
+                delivery.Status = DeliveryStatus.Pending;
+                delivery.SentAt = null;
+                delivery.ExternalMessageId = null;
+                delivery.ErrorMessage = null;
+                delivery.RetryCount = 0;
+            }
 
             foreach (var channel in channels)
             {
