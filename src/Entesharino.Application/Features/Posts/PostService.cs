@@ -716,10 +716,8 @@ public sealed class PostService : IPostService
         if (schedule is null)
             return ResultDto.Fail("پست زمان‌بندی‌شده پیدا نشد.", 404);
 
-        if (schedule.Status != PostStatus.Scheduled || schedule.Schedule is null)
-            return ResultDto.Fail(
-                $"پست {id} در وضعیت قابل اجرای زمان‌بندی نیست. وضعیت فعلی: {schedule.Status}.",
-                409);
+        if (schedule.Schedule is null)
+            return ResultDto.Fail("پست زمان‌بندی‌شده پیدا نشد.", 404);
 
         var isRecurring =
             schedule.Schedule.ScheduleType is
@@ -727,6 +725,16 @@ public sealed class PostService : IPostService
                 ScheduleType.Weekly or
                 ScheduleType.Monthly or
                 ScheduleType.Cron;
+
+        // Recurring posts may be left in Processing by an interrupted older run.
+        // Recover them on the next scheduled execution instead of blocking forever.
+        if (schedule.Status != PostStatus.Scheduled &&
+            !(isRecurring && schedule.Status == PostStatus.Processing))
+        {
+            return ResultDto.Fail(
+                $"پست {id} در وضعیت قابل اجرای زمان‌بندی نیست. وضعیت فعلی: {schedule.Status}.",
+                409);
+        }
 
         if (!isRecurring &&
             schedule.Schedule.NextRunAt.HasValue &&
@@ -741,21 +749,14 @@ public sealed class PostService : IPostService
                 .Where(x => x.PostId == id && !x.IsRemoved)
                 .ToListAsync(cancellationToken);
 
-            // Never reset delivery state while a previous attempt may still be running.
-            if (channels.Any(x => x.Status == DeliveryStatus.Processing))
-                return ResultDto.Fail(
-                    "اجرای زمان‌بندی‌شده متوقف شد؛ حداقل یک کانال هنوز در وضعیت ارسال است.",
-                    409);
-
             var channelIds = channels.Select(x => x.Id).ToList();
             var mediaDeliveries = await _database.PostMediaDeliveries
                 .Where(x => channelIds.Contains(x.PostChannelId) && !x.IsRemoved)
                 .ToListAsync(cancellationToken);
 
-            if (mediaDeliveries.Any(x => x.Status == DeliveryStatus.Processing))
-                return ResultDto.Fail(
-                    "اجرای زمان‌بندی‌شده متوقف شد؛ حداقل یک رسانه هنوز در وضعیت ارسال است.",
-                    409);
+            // Processing records can be stale after an unhandled exception or process
+            // restart. The recurring Hangfire job is serialized, so reconcile these
+            // records before starting the next run rather than blocking future runs.
 
             // A recurring run must deliver media again; old Sent records belong to
             // the previous run and otherwise cause SendPostAsync to skip the media.
@@ -776,6 +777,10 @@ public sealed class PostService : IPostService
                 channel.ErrorMessage = null;
                 channel.RetryCount = 0;
             }
+
+            var recurringPost = await _database.Posts
+                .SingleAsync(x => x.Id == id, cancellationToken);
+            recurringPost.Status = PostStatus.Scheduled;
 
             await _database.SaveChangesAsync(cancellationToken);
         }
@@ -911,11 +916,10 @@ public sealed class PostService : IPostService
                     attempt.ErrorMessage = result.ErrorMessage;
                 }
             }
-            catch (Exception ex) when (
-                ex is InvalidOperationException ||
-                ex is System.Security.Cryptography.CryptographicException ||
-                ex is HttpRequestException)
+            catch (Exception ex)
             {
+                // Persist failures from storage, transport, credential and cancellation
+                // errors as well; otherwise a channel can remain Processing forever.
                 target.Status = DeliveryStatus.Failed;
                 target.ErrorMessage = ex.Message;
                 attempt.IsSuccess = false;
@@ -923,7 +927,7 @@ public sealed class PostService : IPostService
             }
 
             attempt.CompletedAt = DateTime.UtcNow;
-            await _database.SaveChangesAsync(cancellationToken);
+            await _database.SaveChangesAsync(CancellationToken.None);
 
             if (target.Status == DeliveryStatus.Failed && target.RetryCount < 5)
             {
@@ -1019,19 +1023,30 @@ public sealed class PostService : IPostService
             delivery.ErrorMessage = null;
             delivery.RetryCount++;
 
-            await using var stream = await _mediaStorage.OpenReadAsync(
-                item.FileUrl,
-                cancellationToken);
+            try
+            {
+                await using var stream = await _mediaStorage.OpenReadAsync(
+                    item.FileUrl,
+                    cancellationToken);
 
-            lastResult = await sender.SendMediaAsync(
-                credentials,
-                new MediaMessage(
-                    item.MediaType,
-                    stream,
-                    item.FileName,
-                    ResolveMediaContentType(item.MediaType, item.FileName),
-                    captionUsed ? null : post.Content),
-                cancellationToken);
+                lastResult = await sender.SendMediaAsync(
+                    credentials,
+                    new MediaMessage(
+                        item.MediaType,
+                        stream,
+                        item.FileName,
+                        ResolveMediaContentType(item.MediaType, item.FileName),
+                        captionUsed ? null : post.Content),
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                delivery.Status = DeliveryStatus.Failed;
+                delivery.ErrorMessage = ex.Message;
+                await _database.SaveChangesAsync(CancellationToken.None);
+
+                return new SenderResult(false, ErrorMessage: ex.Message);
+            }
 
             if (!lastResult.Success)
             {
