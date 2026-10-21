@@ -931,10 +931,22 @@ public sealed class PostService : IPostService
 
             if (target.Status == DeliveryStatus.Failed && target.RetryCount < 5)
             {
-                await _retryScheduler.ScheduleAsync(
-                    target.Id,
-                    target.RetryCount,
-                    cancellationToken);
+                try
+                {
+                    await _retryScheduler.ScheduleAsync(
+                        target.Id,
+                        target.RetryCount,
+                        cancellationToken);
+                }
+                catch (Exception retryException)
+                {
+                    // A retry scheduling failure must not leave the parent post Processing.
+                    target.ErrorMessage = string.IsNullOrWhiteSpace(target.ErrorMessage)
+                        ? $"زمان‌بندی تلاش مجدد ناموفق بود: {retryException.Message}"
+                        : $"{target.ErrorMessage} | زمان‌بندی تلاش مجدد ناموفق بود: {retryException.Message}";
+                    attempt.ErrorMessage = target.ErrorMessage;
+                    await _database.SaveChangesAsync(CancellationToken.None);
+                }
             }
         }
 
