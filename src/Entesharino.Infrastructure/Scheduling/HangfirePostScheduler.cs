@@ -1,4 +1,5 @@
 using Hangfire;
+using Microsoft.Extensions.Logging;
 using Entesharino.Application.Common.Interfaces;
 using Entesharino.Domain.Enums;
 
@@ -126,20 +127,30 @@ public sealed class HangfirePostScheduler : IPostScheduler
 public sealed class PostExecutionJob
 {
     private readonly IPostService _postService;
+    private readonly ILogger<PostExecutionJob> _logger;
 
-    public PostExecutionJob(IPostService postService)
+    public PostExecutionJob(
+        IPostService postService,
+        ILogger<PostExecutionJob> logger)
     {
         _postService = postService;
+        _logger = logger;
     }
 
     [DisableConcurrentExecution(timeoutInSeconds: 3600)]
     public async Task ExecuteAsync(long postId)
     {
         var result = await _postService.ExecuteScheduledAsync(postId);
+
+        // Delivery failures are persisted and retried per channel by PostService.
+        // Throwing here makes Hangfire retry the entire scheduled run, resetting
+        // all delivery states and potentially sending already-delivered text again.
         if (!result.Success)
         {
-            throw new InvalidOperationException(
-                $"اجرای زمان‌بندی‌شده پست {postId} ناموفق بود: {result.Message}");
+            _logger.LogWarning(
+                "Scheduled post {PostId} completed with delivery errors: {Message}",
+                postId,
+                result.Message);
         }
     }
 }
