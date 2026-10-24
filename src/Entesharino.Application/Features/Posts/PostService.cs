@@ -929,7 +929,12 @@ public sealed class PostService : IPostService
             attempt.CompletedAt = DateTime.UtcNow;
             await _database.SaveChangesAsync(CancellationToken.None);
 
-            if (target.Status == DeliveryStatus.Failed && target.RetryCount < 5)
+            // Recurring posts must not enqueue delayed retries between scheduled runs.
+            // A timeout can happen after the remote platform accepted the message, so
+            // automatic retries here can create duplicate messages.
+            if (target.Status == DeliveryStatus.Failed &&
+                target.RetryCount < 5 &&
+                !isRecurring)
             {
                 try
                 {
