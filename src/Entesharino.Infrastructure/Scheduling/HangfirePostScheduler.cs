@@ -138,6 +138,7 @@ public sealed class PostExecutionJob
     }
 
     [DisableConcurrentExecution(timeoutInSeconds: 3600)]
+    [AutomaticRetry(Attempts = 0)]
     public async Task ExecuteAsync(long postId)
     {
         var result = await _postService.ExecuteScheduledAsync(postId);
