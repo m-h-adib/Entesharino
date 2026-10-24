@@ -48,6 +48,12 @@ public sealed class PostDeliveryService : IPostDeliveryService
         if (target is null)
             return ResultDto.Fail("ارسال موردنظر پیدا نشد.", 404);
 
+        // Ignore retry jobs that were queued before a recurring post was sent.
+        // Retrying an uncertain network result can duplicate a message already accepted
+        // by the remote platform; recurring posts will be attempted at their next schedule.
+        if (IsRecurringPost(target.Post))
+            return ResultDto.Ok("برای پست تکرارشونده، تلاش مجدد بین دو نوبت زمان‌بندی انجام نمی‌شود.");
+
         if (target.Status == DeliveryStatus.Sent)
             return ResultDto.Ok("پیام قبلاً ارسال شده است.");
 
@@ -309,7 +315,7 @@ public sealed class PostDeliveryService : IPostDeliveryService
             target.Post,
             cancellationToken);
 
-        if (target.RetryCount < MaxRetries)
+        if (target.RetryCount < MaxRetries && !IsRecurringPost(target.Post))
         {
             await _retryScheduler.ScheduleAsync(
                 target.Id,
@@ -319,6 +325,13 @@ public sealed class PostDeliveryService : IPostDeliveryService
             return ResultDto.Fail(
                 $"ارسال ناموفق بود و تلاش مجدد شماره {target.RetryCount + 1} زمان‌بندی شد.",
                 202);
+        }
+
+        if (IsRecurringPost(target.Post))
+        {
+            return ResultDto.Fail(
+                "ارسال ناموفق بود؛ به دلیل تکرارشونده بودن پست، تلاش مجدد خودکار تا نوبت بعدی انجام نمی‌شود.",
+                400);
         }
 
         return ResultDto.Fail(
@@ -375,6 +388,17 @@ public sealed class PostDeliveryService : IPostDeliveryService
                             : PostStatus.Failed;
 
         await _database.SaveChangesAsync(cancellationToken);
+    }
+
+    private static bool IsRecurringPost(Post post)
+    {
+        return post.Schedule is not null &&
+            !post.Schedule.IsCompleted &&
+            post.Schedule.ScheduleType is
+                ScheduleType.Daily or
+                ScheduleType.Weekly or
+                ScheduleType.Monthly or
+                ScheduleType.Cron;
     }
 
     private async Task<ResultDto> FailPermanentlyAsync(
