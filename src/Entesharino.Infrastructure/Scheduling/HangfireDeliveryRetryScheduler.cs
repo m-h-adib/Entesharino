@@ -53,6 +53,10 @@ public sealed class PostDeliveryRetryJob
         _deliveryService = deliveryService;
     }
 
+    // Retry policy is implemented explicitly by PostDeliveryService. A second
+    // Hangfire-level retry can duplicate a message when the remote platform accepted
+    // it but the response was lost or timed out.
+    [AutomaticRetry(Attempts = 0)]
     public Task ExecuteAsync(long postChannelId)
         => _deliveryService.RetryAsync(postChannelId);
 }
