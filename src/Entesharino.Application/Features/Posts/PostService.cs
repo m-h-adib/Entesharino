@@ -831,12 +831,24 @@ public sealed class PostService : IPostService
                 .ThenInclude(x => x.Channel)
                     .ThenInclude(x => x.Connection)
             .Include(x => x.Media)
+            .Include(x => x.Schedule)
             .SingleOrDefaultAsync(
                 x => x.Id == id && x.UserId == ownerUserId && !x.IsRemoved,
                 cancellationToken);
 
         if (post is null)
             return ResultDto.Fail("پست موردنظر پیدا نشد.", 404);
+
+        // Do not enqueue per-channel retry jobs for recurring posts. An API timeout
+        // can occur after the platform has accepted the message, so retrying may
+        // publish duplicate text/media before the next scheduled occurrence.
+        var isRecurring = post.Schedule is not null &&
+            !post.Schedule.IsCompleted &&
+            (post.Schedule.ScheduleType is
+                ScheduleType.Daily or
+                ScheduleType.Weekly or
+                ScheduleType.Monthly or
+                ScheduleType.Cron);
 
         if (string.IsNullOrWhiteSpace(post.Content))
             return ResultDto.Fail("متن پست خالی است.", 400);
