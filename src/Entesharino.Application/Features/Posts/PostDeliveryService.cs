@@ -299,6 +299,12 @@ public sealed class PostDeliveryService : IPostDeliveryService
         CancellationToken cancellationToken)
     {
         const int maxAllocationAttempts = 5;
+        var attempt = new DeliveryAttempt
+        {
+            PostChannelId = postChannelId,
+            StartedAt = DateTime.UtcNow
+        };
+        var isAdded = false;
 
         for (var allocationTry = 1; allocationTry <= maxAllocationAttempts; allocationTry++)
         {
@@ -307,14 +313,13 @@ public sealed class PostDeliveryService : IPostDeliveryService
                 .Select(x => (int?)x.AttemptNumber)
                 .MaxAsync(cancellationToken) ?? 0;
 
-            var attempt = new DeliveryAttempt
+            // Reuse the same tracked entity after a unique-key collision.
+            attempt.AttemptNumber = lastAttemptNumber + 1;
+            if (!isAdded)
             {
-                PostChannelId = postChannelId,
-                AttemptNumber = lastAttemptNumber + 1,
-                StartedAt = DateTime.UtcNow
-            };
-
-            _database.DeliveryAttempts.Add(attempt);
+                _database.DeliveryAttempts.Add(attempt);
+                isAdded = true;
+            }
 
             try
             {
@@ -326,9 +331,8 @@ public sealed class PostDeliveryService : IPostDeliveryService
                 (ex.ToString().Contains("IX_DeliveryAttempts_PostChannelId_AttemptNumber", StringComparison.OrdinalIgnoreCase) ||
                  ex.ToString().Contains("duplicate key", StringComparison.OrdinalIgnoreCase)))
             {
-                // Another worker inserted this number first. Detach the failed entity,
-                // re-read history, and try the next available number.
-                _database.DeliveryAttempts.Entry(attempt).State = EntityState.Detached;
+                // Another worker inserted this number first; the next iteration
+                // re-reads history and assigns the next available number.
             }
         }
 
