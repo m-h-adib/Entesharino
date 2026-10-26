@@ -1,13 +1,14 @@
 using System.Text;
-using FluentValidation;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
 using Entesharino.Api.Authorization;
 using Entesharino.Api.Extensions;
 using Entesharino.Api.Validation;
 using Entesharino.Application.Features.Auth.Validators;
 using Entesharino.Infrastructure;
+using FluentValidation;
+using Hangfire;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -101,7 +102,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseSwagger();
 app.UseSwaggerUI();
-
+app.UseHangfireDashboard();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseCors("Frontend");
