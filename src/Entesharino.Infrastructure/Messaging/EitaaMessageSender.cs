@@ -73,9 +73,13 @@ public sealed class EitaaMessageSender : IMessageSender
 
         if (!response.IsSuccessStatusCode)
         {
+            var details = string.IsNullOrWhiteSpace(body)
+                ? response.ReasonPhrase
+                : body.Length > 1200 ? body[..1200] : body;
+
             return new SenderResult(
                 false,
-                ErrorMessage: $"EitaaYar API خطا برگرداند: {(int)response.StatusCode}.");
+                ErrorMessage: $"EitaaYar API خطا برگرداند: {(int)response.StatusCode} {response.ReasonPhrase}. پاسخ: {details}");
         }
 
         try
