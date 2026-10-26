@@ -48,9 +48,15 @@ internal static class BotApiMediaSenderHelper
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
+        {
+            var details = string.IsNullOrWhiteSpace(body)
+                ? response.ReasonPhrase
+                : body.Length > 1200 ? body[..1200] : body;
+
             return new SenderResult(
                 false,
-                ErrorMessage: $"Bot API خطا برگرداند: {(int)response.StatusCode}.");
+                ErrorMessage: $"Bot API خطا برگرداند: {(int)response.StatusCode} {response.ReasonPhrase}. پاسخ: {details}");
+        }
 
         try
         {
