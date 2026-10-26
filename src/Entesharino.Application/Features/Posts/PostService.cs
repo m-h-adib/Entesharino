@@ -853,8 +853,25 @@ public sealed class PostService : IPostService
         if (string.IsNullOrWhiteSpace(post.Content))
             return ResultDto.Fail("متن پست خالی است.", 400);
 
-        var targets = post.Channels
-            .Where(x => !x.IsRemoved && x.Channel.IsActive)
+        var allTargets = post.Channels
+            .Where(x => !x.IsRemoved)
+            .ToList();
+
+        var inactiveTargets = allTargets
+            .Where(x => !x.Channel.IsActive)
+            .ToList();
+
+        // Previously inactive channels were silently excluded from the send loop,
+        // leaving their delivery state Pending and making scheduled sends look
+        // as if the channel had simply been ignored.
+        foreach (var target in inactiveTargets)
+        {
+            target.Status = DeliveryStatus.Failed;
+            target.ErrorMessage = "کانال غیرفعال است؛ ارسال انجام نشد.";
+        }
+
+        var targets = allTargets
+            .Where(x => x.Channel.IsActive)
             .ToList();
 
         if (targets.Count > 0)
@@ -865,7 +882,10 @@ public sealed class PostService : IPostService
         }
 
         if (targets.Count == 0)
+        {
+            await _database.SaveChangesAsync(cancellationToken);
             return ResultDto.Fail("هیچ کانال فعال و معتبری برای ارسال وجود ندارد.", 400);
+        }
 
         post.Status = PostStatus.Processing;
         await _database.SaveChangesAsync(cancellationToken);
