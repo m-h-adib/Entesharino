@@ -895,24 +895,13 @@ public sealed class PostService : IPostService
             if (target.Status == DeliveryStatus.Sent)
                 continue;
 
-            // RetryCount is reset for each occurrence of a recurring post.
-            // DeliveryAttempts is historical, so derive its unique sequence from history.
-            var lastAttemptNumber = await _database.DeliveryAttempts
-                .Where(x => x.PostChannelId == target.Id)
-                .Select(x => (int?)x.AttemptNumber)
-                .MaxAsync(cancellationToken) ?? 0;
-
-            var attempt = new DeliveryAttempt
-            {
-                PostChannelId = target.Id,
-                AttemptNumber = lastAttemptNumber + 1,
-                StartedAt = DateTime.UtcNow
-            };
-
             target.Status = DeliveryStatus.Processing;
             target.ErrorMessage = null;
             target.RetryCount++;
-            _database.DeliveryAttempts.Add(attempt);
+
+            // Persist the attempt before contacting the platform. The helper retries
+            // unique-key collisions if two workers select the same next attempt number.
+            var attempt = await CreateDeliveryAttemptAsync(target.Id, cancellationToken);
 
             try
             {
@@ -1242,6 +1231,49 @@ public sealed class PostService : IPostService
             cancellationToken);
 
         return ResultDto.Ok("پست با موفقیت زمان‌بندی شد.");
+    }
+
+
+    private async Task<DeliveryAttempt> CreateDeliveryAttemptAsync(
+        long postChannelId,
+        CancellationToken cancellationToken)
+    {
+        const int maxAllocationAttempts = 5;
+
+        for (var allocationTry = 1; allocationTry <= maxAllocationAttempts; allocationTry++)
+        {
+            var lastAttemptNumber = await _database.DeliveryAttempts
+                .Where(x => x.PostChannelId == postChannelId)
+                .Select(x => (int?)x.AttemptNumber)
+                .MaxAsync(cancellationToken) ?? 0;
+
+            var attempt = new DeliveryAttempt
+            {
+                PostChannelId = postChannelId,
+                AttemptNumber = lastAttemptNumber + 1,
+                StartedAt = DateTime.UtcNow
+            };
+
+            _database.DeliveryAttempts.Add(attempt);
+
+            try
+            {
+                await _database.SaveChangesAsync(cancellationToken);
+                return attempt;
+            }
+            catch (DbUpdateException ex) when (
+                allocationTry < maxAllocationAttempts &&
+                (ex.ToString().Contains("IX_DeliveryAttempts_PostChannelId_AttemptNumber", StringComparison.OrdinalIgnoreCase) ||
+                 ex.ToString().Contains("duplicate key", StringComparison.OrdinalIgnoreCase)))
+            {
+                // Another worker inserted this number first. Detach the failed entity,
+                // re-read history, and try the next available number.
+                _database.DeliveryAttempts.Entry(attempt).State = EntityState.Detached;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"تخصیص شماره تلاش ارسال برای کانال {postChannelId} پس از چند بار تلاش ناموفق بود.");
     }
 
     private static string? ValidatePostInput(string title, string? content)
