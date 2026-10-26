@@ -895,10 +895,17 @@ public sealed class PostService : IPostService
             if (target.Status == DeliveryStatus.Sent)
                 continue;
 
+            // RetryCount is reset for each occurrence of a recurring post.
+            // DeliveryAttempts is historical, so derive its unique sequence from history.
+            var lastAttemptNumber = await _database.DeliveryAttempts
+                .Where(x => x.PostChannelId == target.Id)
+                .Select(x => (int?)x.AttemptNumber)
+                .MaxAsync(cancellationToken) ?? 0;
+
             var attempt = new DeliveryAttempt
             {
                 PostChannelId = target.Id,
-                AttemptNumber = target.RetryCount + 1,
+                AttemptNumber = lastAttemptNumber + 1,
                 StartedAt = DateTime.UtcNow
             };
 
