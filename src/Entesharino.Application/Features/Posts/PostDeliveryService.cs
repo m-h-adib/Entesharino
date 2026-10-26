@@ -81,10 +81,17 @@ public sealed class PostDeliveryService : IPostDeliveryService
         target.Status = DeliveryStatus.Processing;
         target.ErrorMessage = null;
 
+        // RetryCount is a per-delivery retry counter and may reset between recurring
+        // occurrences. AttemptNumber is historical and must remain unique per channel.
+        var lastAttemptNumber = await _database.DeliveryAttempts
+            .Where(x => x.PostChannelId == target.Id)
+            .Select(x => (int?)x.AttemptNumber)
+            .MaxAsync(cancellationToken) ?? 0;
+
         var attempt = new DeliveryAttempt
         {
             PostChannelId = target.Id,
-            AttemptNumber = target.RetryCount + 1,
+            AttemptNumber = lastAttemptNumber + 1,
             StartedAt = DateTime.UtcNow
         };
 
